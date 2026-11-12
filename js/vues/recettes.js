@@ -3,6 +3,7 @@ import { liste, obtenir, enregistrer, supprimer, creer, db } from '../store.js';
 import { UNITES, CATEGORIES_MATERIEL } from '../donnees.js';
 import { $, $$, esc, euro, nombre, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN } from '../ui.js';
 import { coutRecette, coutIngredient, margeProduit, formaterQuantite } from '../calculs.js';
+import { vignette } from '../photos.js';
 
 let recherche = '';
 
@@ -60,7 +61,7 @@ export function ouvrirRecette(id) {
       const ing = db.ingredients[l.ingredientId];
       const q = (Number(l.quantite) || 0) * f;
       const manque = ing && q > (Number(ing.quantite) || 0);
-      return `<li class="flex items-baseline justify-between gap-3 py-2.5"><span class="text-[15px]">${esc(ing?.nom || 'Ingrédient supprimé')}</span><span class="font-semibold tabular-nums text-[15px] whitespace-nowrap ${manque ? 'text-red-700' : ''}">${formaterQuantite(q, ing?.unite)}${manque ? ' <i class="fa-solid fa-triangle-exclamation text-xs" title="Stock insuffisant"></i>' : ''}</span></li>`;
+      return `<li class="flex items-center justify-between gap-3 py-2"><span class="flex items-center gap-2.5 min-w-0 text-[15px]">${ing?.miniature ? vignette({ ...ing }, 'w-9 h-9') : ''}<span class="truncate">${esc(ing?.nom || 'Ingrédient supprimé')}</span></span><span class="font-semibold tabular-nums text-[15px] whitespace-nowrap ${manque ? 'text-red-700' : ''}">${formaterQuantite(q, ing?.unite)}${manque ? ' <i class="fa-solid fa-triangle-exclamation text-xs" title="Stock insuffisant"></i>' : ''}</span></li>`;
     }).join('');
     const c = coutRecette(r);
     $('#fiche-cout').textContent = euro(c.parPart * parts);
@@ -85,12 +86,12 @@ export function ouvrirRecette(id) {
         <div class="flex justify-between text-sm border-t border-brand-200 py-2.5 text-brand-600"><span>Coût des ingrédients</span><strong id="fiche-cout" class="tabular-nums text-brand-900"></strong></div>
       </section>
       ${(r.materiel || []).length ? (() => {
-        const lignes = r.materiel.map(l => { const mt = db.materiel[l.materielId]; const dispo = Number(mt?.quantite) || 0; return { nom: mt?.nom || 'Matériel supprimé', besoin: Number(l.quantite) || 1, dispo }; });
+        const lignes = r.materiel.map(l => { const mt = db.materiel[l.materielId]; const dispo = Number(mt?.quantite) || 0; return { nom: mt?.nom || 'Matériel supprimé', besoin: Number(l.quantite) || 1, dispo, mt }; });
         const ok = lignes.every(l => l.dispo >= l.besoin);
         return `<section class="bg-white rounded-2xl border ${ok ? 'border-brand-200' : 'border-red-300'} px-4 py-2">
           <div class="flex items-center justify-between pt-2"><h3 class="text-xs font-bold uppercase tracking-wider text-brand-500">Matériel</h3>
             <span class="text-xs font-semibold ${ok ? 'text-emerald-700' : 'text-red-700'}">${ok ? '<i class="fa-solid fa-circle-check"></i> Tout est disponible' : '<i class="fa-solid fa-triangle-exclamation"></i> Il manque du matériel'}</span></div>
-          <ul class="divide-y divide-brand-100">${lignes.map(l => `<li class="flex items-center justify-between gap-3 py-2.5"><span class="flex items-center gap-2.5 text-[15px]"><i class="fa-solid ${l.dispo >= l.besoin ? 'fa-check text-emerald-600' : 'fa-xmark text-red-600'} w-4"></i>${esc(l.nom)}</span><span class="text-sm tabular-nums whitespace-nowrap ${l.dispo >= l.besoin ? 'text-brand-600' : 'text-red-700 font-semibold'}">${l.besoin > 1 ? l.besoin + ' nécessaires · ' : ''}${l.dispo} dispo.</span></li>`).join('')}</ul></section>`;
+          <ul class="divide-y divide-brand-100">${lignes.map(l => `<li class="flex items-center justify-between gap-3 py-2"><span class="flex items-center gap-2.5 min-w-0 text-[15px]"><i class="fa-solid ${l.dispo >= l.besoin ? 'fa-check text-emerald-600' : 'fa-xmark text-red-600'} w-4 flex-none"></i>${l.mt?.miniature ? vignette({ ...l.mt }, 'w-9 h-9') : ''}<span class="truncate">${esc(l.nom)}</span></span><span class="text-sm tabular-nums whitespace-nowrap ${l.dispo >= l.besoin ? 'text-brand-600' : 'text-red-700 font-semibold'}">${l.besoin > 1 ? l.besoin + ' nécessaires · ' : ''}${l.dispo} dispo.</span></li>`).join('')}</ul></section>`;
       })() : ''}
       ${m ? `<section class="grid grid-cols-3 gap-2 text-center">
         <div class="bg-white rounded-xl border border-brand-200 p-3"><div class="text-[11px] text-brand-500">Coût (${m.parts} parts)</div><div class="font-semibold tabular-nums">${euro(m.cout)}</div></div>

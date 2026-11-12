@@ -1,9 +1,10 @@
 // Stock : ingrédients et matériel
-import { liste, obtenir, creer, enregistrer, modifier, supprimer, db } from '../store.js';
+import { liste, obtenir, creer, enregistrer, modifier, supprimer, supprimerPhoto, db } from '../store.js';
 import { UNITES } from '../donnees.js';
 import { $, esc, euro, isoJour, ajouterJours, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, etatVide, BTN } from '../ui.js';
 import { formaterQuantite, coutIngredient, besoinsCommandes } from '../calculs.js';
 import { renderMateriel } from './materiel.js';
+import { editeurPhotos, vignette } from '../photos.js';
 
 let filtre = 'tous';
 let onglet = 'ingredients';
@@ -57,13 +58,14 @@ export default {
         ${visibles.map(i => {
           const e = etat(i), q = Number(i.quantite) || 0, s = Number(i.seuil) || 0;
           const ratio = Math.min(1, s ? q / (s * 2) : q > 0 ? 1 : 0);
-          return `<div class="flex items-center gap-3 px-3 sm:px-4 py-3">
-            <button type="button" data-editer="${i.id}" class="flex-1 min-w-0 text-left">
+          return `<div class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 sm:px-4 py-3">
+            ${vignette(i)}
+            <button type="button" data-editer="${i.id}" class="flex-1 min-w-[10rem] text-left">
               <div class="flex items-center gap-2"><span class="font-semibold truncate">${esc(i.nom)}</span><span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${e.classe} whitespace-nowrap">${e.label}</span></div>
               <div class="flex items-center gap-2 mt-1.5"><span class="h-1.5 w-20 sm:w-28 rounded-full bg-brand-100 overflow-hidden"><span class="block h-full ${e.barre}" style="width:${Math.round(ratio * 100)}%"></span></span>
                 <span class="text-xs text-brand-500 truncate">alerte sous ${formaterQuantite(s, i.unite)}${i.prix ? ` · ${euro(i.prix)} ${UNITES[i.unite]?.prixLabel.replace('€ ', '') || ''}` : ''}</span></div>
             </button>
-            <div class="flex items-center gap-1 flex-none">
+            <div class="flex items-center gap-1 flex-none ml-auto">
               <button type="button" data-ajuster="${i.id}" data-sens="-1" class="w-9 h-9 rounded-xl border border-brand-200 hover:bg-brand-50 font-bold" aria-label="Retirer ${pas(i.unite)} ${UNITES[i.unite]?.label} de ${esc(i.nom)}">−</button>
               <button type="button" data-mouvement="${i.id}" class="min-w-[5.5rem] px-2 h-9 rounded-xl font-semibold text-sm tabular-nums hover:bg-brand-50" title="Saisir une quantité">${formaterQuantite(q, i.unite)}</button>
               <button type="button" data-ajuster="${i.id}" data-sens="1" class="w-9 h-9 rounded-xl border border-brand-200 hover:bg-brand-50 font-bold" aria-label="Ajouter ${pas(i.unite)} ${UNITES[i.unite]?.label} de ${esc(i.nom)}">+</button>
@@ -146,20 +148,24 @@ function formulaireIngredient(i) {
       </div>
       ${champ({ id: 'in-prix', label: 'Prix d\'achat', type: 'number', valeur: i.prix, attrs: 'min="0" step="0.01"', aide: 'En € par kg pour les grammes, par litre pour les millilitres, par pièce sinon.' })}
       ${champ({ id: 'in-fournisseur', label: 'Fournisseur', valeur: i.fournisseur || '' })}
+      <div><span class="block text-xs font-semibold text-brand-700 mb-1.5">Photos</span><div id="in-photos"></div></div>
       ${utilisee.length ? `<p class="text-xs text-brand-500">Utilisé dans : ${esc(utilisee.join(', '))}</p>` : ''}
     </form>`,
     pied: `<div class="flex gap-2">${edition ? `<button type="button" id="in-supprimer" class="${BTN.danger}" aria-label="Supprimer"><i class="fa-regular fa-trash-can"></i></button>` : ''}<button type="button" data-action="fermer-panneau" class="${BTN.secondaire}">Annuler</button><button type="submit" form="form-ingredient" class="${BTN.principal} flex-1">Enregistrer</button></div>`,
     onOuvert: (corps, pied) => {
+      const photos = editeurPhotos($('#in-photos'), i.photos || []);
       const sup = $('#in-supprimer', pied);
       if (sup) sup.onclick = async () => {
         const msg = utilisee.length ? `« ${i.nom} » est utilisé dans ${utilisee.length} recette(s). Le supprimer quand même ?` : `Supprimer « ${i.nom} » ?`;
-        if (await confirmer(msg, { bouton: 'Supprimer', danger: true })) { await supprimer('ingredients', i.id); fermerPanneau(); toast('Ingrédient supprimé'); }
+        if (await confirmer(msg, { bouton: 'Supprimer', danger: true })) { await supprimer('ingredients', i.id); (i.photos || []).forEach(id => supprimerPhoto(id).catch(() => {})); fermerPanneau(); toast('Ingrédient supprimé'); }
       };
       $('#form-ingredient').onsubmit = async e => {
         e.preventDefault();
         const v = id => $('#' + id).value.trim();
         if (!v('in-nom')) { $('#in-nom').focus(); return; }
         const d = { nom: v('in-nom'), unite: v('in-unite'), quantite: Number(v('in-quantite')) || 0, seuil: Number(v('in-seuil')) || 0, prix: Number(v('in-prix')) || 0, fournisseur: v('in-fournisseur') };
+        const bouton = pied.querySelector('button[type=submit]'); bouton.disabled = true; bouton.textContent = 'Enregistrement…';
+        try { Object.assign(d, await photos.enregistrer()); } catch (err) { toast(err.message, 'erreur'); bouton.disabled = false; bouton.textContent = 'Enregistrer'; return; }
         if (edition) await enregistrer('ingredients', i.id, d); else await creer('ingredients', d);
         fermerPanneau(); toast('Ingrédient enregistré');
       };

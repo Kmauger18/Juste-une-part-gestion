@@ -1,8 +1,9 @@
 // Matériel : moules, ustensiles, appareils, emballages
-import { liste, obtenir, creer, enregistrer, modifier, supprimer, db } from '../store.js';
+import { liste, obtenir, creer, enregistrer, modifier, supprimer, supprimerPhoto, db } from '../store.js';
 import { CATEGORIES_MATERIEL } from '../donnees.js';
 import { $, esc, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN } from '../ui.js';
 import { recettesUtilisantMateriel } from '../calculs.js';
+import { editeurPhotos, vignette } from '../photos.js';
 
 let recherche = '';
 
@@ -32,12 +33,13 @@ export function renderMateriel(el, onglets, rerender) {
           ${items.map(m => {
             const q = Number(m.quantite) || 0;
             const recettes = recettesUtilisantMateriel(m.id);
-            return `<div class="flex items-center gap-3 px-3 sm:px-4 py-3">
-              <button type="button" data-editer-m="${m.id}" class="flex-1 min-w-0 text-left">
+            return `<div class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 sm:px-4 py-3">
+              ${vignette(m)}
+              <button type="button" data-editer-m="${m.id}" class="flex-1 min-w-[10rem] text-left">
                 <div class="flex items-center gap-2"><span class="font-semibold truncate">${esc(m.nom)}</span>${q <= 0 ? '<span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-100 text-red-800 whitespace-nowrap">Indisponible</span>' : ''}</div>
                 <div class="text-xs text-brand-500 truncate mt-0.5">${recettes.length ? `Utilisé dans ${recettes.length} recette${recettes.length > 1 ? 's' : ''}` : 'Dans aucune recette'}${m.notes ? ' · ' + esc(m.notes) : ''}</div>
               </button>
-              <div class="flex items-center gap-1 flex-none">
+              <div class="flex items-center gap-1 flex-none ml-auto">
                 <button type="button" data-ajuster-m="${m.id}" data-sens="-1" class="w-9 h-9 rounded-xl border border-brand-200 hover:bg-brand-50 font-bold" aria-label="Un ${esc(m.nom)} de moins">−</button>
                 <span class="min-w-[2.5rem] text-center font-semibold tabular-nums">${q}</span>
                 <button type="button" data-ajuster-m="${m.id}" data-sens="1" class="w-9 h-9 rounded-xl border border-brand-200 hover:bg-brand-50 font-bold" aria-label="Un ${esc(m.nom)} de plus">+</button>
@@ -71,19 +73,23 @@ export function formulaireMateriel(m) {
         ${champ({ id: 'ma-quantite', label: 'Nombre disponible', type: 'number', valeur: m.quantite, attrs: 'min="0" step="1"', aide: '0 si cassé, prêté ou à racheter.' })}
       </div>
       ${champ({ id: 'ma-notes', label: 'Notes', valeur: m.notes || '', attrs: 'placeholder="ex. prêté à maman, rayé…"' })}
+      <div><span class="block text-xs font-semibold text-brand-700 mb-1.5">Photos</span><div id="ma-photos"></div></div>
       ${recettes.length ? `<p class="text-xs text-brand-500">Utilisé dans : ${esc(recettes.join(', '))}</p>` : ''}
     </form>`,
     pied: `<div class="flex gap-2">${edition ? `<button type="button" id="ma-supprimer" class="${BTN.danger}" aria-label="Supprimer"><i class="fa-regular fa-trash-can"></i></button>` : ''}<button type="button" data-action="fermer-panneau" class="${BTN.secondaire}">Annuler</button><button type="submit" form="form-materiel" class="${BTN.principal} flex-1">Enregistrer</button></div>`,
     onOuvert: (corps, pied) => {
+      const photos = editeurPhotos($('#ma-photos'), m.photos || []);
       const sup = $('#ma-supprimer', pied);
       if (sup) sup.onclick = async () => {
         const msg = recettes.length ? `« ${m.nom} » est utilisé dans ${recettes.length} recette(s). Le supprimer quand même ?` : `Supprimer « ${m.nom} » ?`;
-        if (await confirmer(msg, { bouton: 'Supprimer', danger: true })) { await supprimer('materiel', m.id); fermerPanneau(); toast('Matériel supprimé'); }
+        if (await confirmer(msg, { bouton: 'Supprimer', danger: true })) { await supprimer('materiel', m.id); (m.photos || []).forEach(id => supprimerPhoto(id).catch(() => {})); fermerPanneau(); toast('Matériel supprimé'); }
       };
       $('#form-materiel').onsubmit = async e => {
         e.preventDefault();
         const nom = $('#ma-nom').value.trim(); if (!nom) { $('#ma-nom').focus(); return; }
         const d = { nom, categorie: $('#ma-categorie').value, quantite: Math.max(0, parseInt($('#ma-quantite').value, 10) || 0), notes: $('#ma-notes').value.trim() };
+        const bouton = pied.querySelector('button[type=submit]'); bouton.disabled = true; bouton.textContent = 'Enregistrement…';
+        try { Object.assign(d, await photos.enregistrer()); } catch (err) { toast(err.message, 'erreur'); bouton.disabled = false; bouton.textContent = 'Enregistrer'; return; }
         if (edition) await enregistrer('materiel', m.id, d); else await creer('materiel', d);
         fermerPanneau(); toast('Matériel enregistré');
       };

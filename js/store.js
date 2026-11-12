@@ -62,7 +62,7 @@ const demo = {
     this.sauver();
   },
   sauver() { try { localStorage.setItem(CLE_DEMO, JSON.stringify(db)); } catch (e) { /* stockage indisponible */ } },
-  reinitialiser() { try { localStorage.removeItem(CLE_DEMO); } catch (e) {} this.charger(); notifier(); }
+  reinitialiser() { try { localStorage.removeItem(CLE_DEMO); localStorage.removeItem('jup-gestion-photos-v1'); } catch (e) {} this.charger(); notifier(); }
 };
 
 // =====================================================================
@@ -204,6 +204,39 @@ export async function importerCatalogueSite() {
 }
 
 export function reinitialiserDemo() { demo.reinitialiser(); }
+
+// ---------- Photos (stockées à part, chargées à la demande) ----------
+const CLE_PHOTOS_DEMO = 'jup-gestion-photos-v1';
+const cachePhotos = new Map();
+function photosDemo() { try { return JSON.parse(localStorage.getItem(CLE_PHOTOS_DEMO)) || {}; } catch (e) { return {}; } }
+
+export async function lirePhoto(id) {
+  if (cachePhotos.has(id)) return cachePhotos.get(id);
+  let data = null;
+  if (mode === 'demo') data = photosDemo()[id] || null;
+  else { const snap = await fb.f.getDoc(fb.f.doc(fb.fs, 'photos', id)); data = snap.exists() ? snap.data().data : null; }
+  if (data) cachePhotos.set(id, data);
+  return data;
+}
+
+export async function creerPhoto(data) {
+  const id = 'ph' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  if (mode === 'demo') {
+    const toutes = photosDemo(); toutes[id] = data;
+    try { localStorage.setItem(CLE_PHOTOS_DEMO, JSON.stringify(toutes)); }
+    catch (e) { throw Object.assign(new Error('Plus de place pour les photos en mode démo sur cet appareil.'), { code: 'quota' }); }
+  } else {
+    await suivre(fb.f.setDoc(fb.f.doc(fb.fs, 'photos', id), { data, creeLe: Date.now() }));
+  }
+  cachePhotos.set(id, data);
+  return id;
+}
+
+export async function supprimerPhoto(id) {
+  cachePhotos.delete(id);
+  if (mode === 'demo') { const t = photosDemo(); delete t[id]; try { localStorage.setItem(CLE_PHOTOS_DEMO, JSON.stringify(t)); } catch (e) {} return; }
+  await suivre(fb.f.deleteDoc(fb.f.doc(fb.fs, 'photos', id)));
+}
 
 export function exporterTout() {
   return JSON.stringify({ exporteLe: new Date().toISOString(), ...db }, null, 2);

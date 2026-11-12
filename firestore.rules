@@ -57,6 +57,10 @@ service cloud.firestore {
     match /materiel/{id} {
       allow read, write: if estElodie();
     }
+    // Photos des ingrédients et du matériel
+    match /photos/{id} {
+      allow read, write: if estElodie();
+    }
     match /recettes/{id} {
       allow read, write: if estElodie();
     }
