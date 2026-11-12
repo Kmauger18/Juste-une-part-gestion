@@ -28,6 +28,7 @@ export default {
         <h1 class="hidden lg:block font-display text-3xl">Produits</h1>
         <button type="button" data-p="nouveau" class="${BTN.principal} w-full sm:w-auto"><i class="fa-solid fa-plus"></i> Nouveau gâteau</button>
       </div>
+      ${mode === 'demo' ? `<div class="mb-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 text-sm flex gap-3"><i class="fa-solid fa-triangle-exclamation mt-0.5"></i><span><strong>Mode démo :</strong> les modifications restent sur cet appareil et <strong>n'apparaissent pas sur le site</strong>. Elles s'afficheront sur le site une fois Firebase configuré (voir GUIDE-FIREBASE.md).</span></div>` : ''}
       <p class="text-sm text-brand-600 mb-5">Ce qui est visible ici apparaît sur le site, dans cet ordre. <i class="fa-solid fa-star text-gold"></i> = mis en avant sur la page d'accueil.</p>
       ${tous.length ? `
       <div class="flex gap-2 overflow-x-auto pb-1 mb-5 -mx-4 px-4 sm:mx-0 sm:px-0">
