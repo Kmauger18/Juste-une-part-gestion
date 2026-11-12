@@ -44,3 +44,17 @@ Seulement si de nouvelles classes Tailwind sont ajoutées dans le code :
 ```bash
 npx tailwindcss@3.4.17 -c tailwind.config.js -i css/source.css -o css/style.css --minify
 ```
+
+## Application Android
+
+Le dossier `android-app/` contient l'application Android (Capacitor). Elle ouvre l'espace de gestion en ligne : chaque mise à jour poussée sur GitHub y apparaît sans réinstaller l'application. Sans internet, elle affiche une page « Pas de connexion » avec un bouton pour réessayer.
+
+Recompiler l'APK (Java 21 et SDK Android 35 requis) :
+
+```bash
+cd android-app
+npm install
+npm run apk   # → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+À recompiler seulement si l'icône, le nom ou l'adresse de l'espace changent.

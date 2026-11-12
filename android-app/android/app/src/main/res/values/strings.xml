@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gestion pâtisserie</string>
+    <string name="title_activity_main">Gestion pâtisserie</string>
+    <string name="package_name">fr.justeunepart.gestion</string>
+    <string name="custom_url_scheme">fr.justeunepart.gestion</string>
+</resources>

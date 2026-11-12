@@ -1,0 +1,13 @@
+{
+  "appId": "fr.justeunepart.gestion",
+  "appName": "Gestion pâtisserie",
+  "webDir": "www",
+  "server": {
+    "url": "https://kmauger18.github.io/Juste-une-part-gestion/",
+    "errorPath": "hors-ligne.html",
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#341A0B"
+  }
+}
