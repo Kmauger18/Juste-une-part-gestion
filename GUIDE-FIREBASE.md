@@ -21,7 +21,7 @@ Formule utilisée : **Spark (gratuite)**. Aucune carte bancaire n'est demandée,
 
 1. Menu **Créer → Firestore Database → Créer une base de données**.
 2. Emplacement : **eur3 (Europe)**. Mode : **production** → **Créer**.
-3. Onglet **Règles** : remplace tout par le contenu du fichier [`firestore.rules`](firestore.rules), en mettant l'adresse d'Élodie à la place de `ADRESSE_ELODIE@exemple.fr` → **Publier**.
+3. Onglet **Règles** : remplace tout par le contenu du fichier [`firestore.rules`](firestore.rules) → **Publier**.
 
 ## 4. Récupérer la configuration
 
@@ -34,7 +34,7 @@ Formule utilisée : **Spark (gratuite)**. Aucune carte bancaire n'est demandée,
 Dans **`firebase-config.js`** de chaque dépôt (`Juste-une-part-gestion` et `Juste-une-part-merci-`), sur GitHub (crayon → modifier) :
 
 - recopie les valeurs `apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId` ;
-- dans le dépôt de gestion, écris aussi l'adresse d'Élodie dans `ADMIN_EMAIL`.
+- laisse `ADMIN_EMAIL` vide : tout compte créé dans Authentication a accès.
 
 Ces valeurs ne sont pas secrètes : elles identifient seulement le projet. La protection vient des règles de l'étape 3 et du mot de passe d'Élodie.
 
@@ -62,3 +62,11 @@ Ouvrir l'adresse de l'espace de gestion dans Safari ou Chrome, puis **Partager �
 ## Limites de la formule gratuite
 
 Largement suffisantes pour une pâtisserie : 50 000 lectures et 20 000 écritures par jour, 1 Go de données. Les photos de gâteaux sont réduites automatiquement pour rester légères.
+
+## Donner accès à quelqu'un d'autre
+
+Firebase → **Authentication → Users → Ajouter un utilisateur** (adresse e-mail et mot de passe). Le compte a accès à l'espace de gestion immédiatement, sur le site comme dans l'application Android, sans rien modifier d'autre.
+
+Pour retirer un accès : dans la même liste, menu **⋮** du compte → **Désactiver le compte** ou **Supprimer le compte**.
+
+L'inscription libre doit rester **désactivée** (Authentication → Paramètres → Actions de l'utilisateur) : c'est elle qui garantit que seuls les comptes ajoutés à la main ont accès.

@@ -2,15 +2,20 @@ rules_version = '2';
 
 // Règles de sécurité de la base « Juste une part, merci ! »
 // À coller dans Firebase : Firestore Database → onglet Règles → Publier.
-// Remplace ADRESSE_ELODIE@exemple.fr par l'adresse du compte d'Élodie
-// (la même que ADMIN_EMAIL dans firebase-config.js).
+//
+// Accès à l'espace de gestion : tout compte créé dans Firebase Authentication
+// (onglet Users) a accès automatiquement. Aucune adresse à écrire ici.
+// IMPORTANT : l'inscription libre doit rester désactivée
+// (Authentication → Paramètres → Actions de l'utilisateur → décocher
+// « Activer la création (inscription) »), sinon n'importe qui pourrait
+// se créer un compte et accéder aux données.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Un compte de l'équipe = tout compte créé dans Firebase Authentication
     function estElodie() {
-      return request.auth != null
-        && request.auth.token.email == 'keliannmauger@gmail.com';
+      return request.auth != null;
     }
 
     // Commande envoyée depuis le site : seulement une nouvelle demande, bien formée

@@ -22,7 +22,7 @@ Le stock se met à jour tout seul : quand une commande passe à « Prête », le
 ## Sécurité
 
 - Connexion par e-mail et mot de passe (Firebase Authentication), inscription désactivée.
-- Règles Firestore ([`firestore.rules`](firestore.rules)) : seul le compte d'Élodie lit et modifie commandes, stock et recettes. Les visiteurs du site peuvent seulement lire les gâteaux visibles et les infos, et envoyer une nouvelle demande de commande.
+- Règles Firestore ([`firestore.rules`](firestore.rules)) : seuls les comptes créés dans Firebase Authentication lisent et modifient commandes, stock et recettes (un compte ajouté a accès automatiquement). Les visiteurs du site peuvent seulement lire les gâteaux visibles et les infos, et envoyer une nouvelle demande de commande.
 - La page n'est pas référencée par les moteurs de recherche.
 
 ## Fichiers
@@ -30,7 +30,7 @@ Le stock se met à jour tout seul : quand une commande passe à « Prête », le
 | Fichier | Rôle |
 |---|---|
 | `index.html` | Structure de l'application |
-| `firebase-config.js` | Configuration Firebase (même contenu que dans le dépôt du site, plus `ADMIN_EMAIL`) |
+| `firebase-config.js` | Configuration Firebase (même contenu que dans le dépôt du site) |
 | `js/store.js` | Lecture et écriture des données (Firebase ou mode démo) |
 | `js/calculs.js` | Coûts de revient, besoins en ingrédients, chiffre d'affaires |
 | `js/vues/*.js` | Un fichier par écran |

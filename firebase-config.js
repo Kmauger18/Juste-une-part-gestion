@@ -3,8 +3,8 @@
 // ============================================================
 //  1. Crée le projet Firebase (voir GUIDE-FIREBASE.md).
 //  2. Colle ici les valeurs de « firebaseConfig » données par Firebase.
-//  3. Écris l'adresse e-mail du compte d'Élodie dans ADMIN_EMAIL
-//     (la même que dans firestore.rules).
+//  3. Les comptes qui ont accès à l'espace de gestion se créent dans
+//     Firebase → Authentication → Users : chaque compte ajouté y a accès.
 //
 //  Tant que apiKey est vide, le site garde son catalogue actuel
 //  et l'espace de gestion fonctionne en MODE DÉMO (données d'exemple
@@ -22,7 +22,9 @@ export const firebaseConfig = {
   appId: "1:348762982440:web:bfa8612da9dad745368d1d"
 };
 
-export const ADMIN_EMAIL = "keliannmauger@gmail.com";
+// Laisser vide : tout compte créé dans Firebase Authentication a accès.
+// (Mettre une adresse ici limiterait l'espace de gestion à ce seul compte.)
+export const ADMIN_EMAIL = "";
 
 export const firebaseActif = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 

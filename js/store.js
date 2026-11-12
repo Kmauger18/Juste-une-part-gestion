@@ -24,7 +24,7 @@ export function utilisateurCourant() { return fb?.auth?.currentUser?.email || (m
 export function messageErreur(err) {
   const code = err?.code || '';
   if (code.includes('permission-denied')) {
-    return `Firebase a refusé l'accès. Compte connecté : ${utilisateurCourant() || 'aucun'}. Les règles Firestore n'autorisent que ${ADMIN_EMAIL || 'l\'adresse indiquée dans firestore.rules'} : connectez-vous avec ce compte, ou mettez la bonne adresse dans les règles et republiez-les.`;
+    return `Firebase a refusé l'accès. Compte connecté : ${utilisateurCourant() || 'aucun'}. Vérifiez que les dernières règles (firestore.rules) sont bien publiées dans Firebase, puis reconnectez-vous.`;
   }
   if (code.includes('unavailable') || code.includes('network')) return 'Firebase est injoignable (pas de réseau, ou un bloqueur de publicité bloque firestore.googleapis.com). Les modifications sont gardées sur l\'appareil et partiront dès que la connexion revient.';
   if (code.includes('unauthenticated')) return 'Session expirée : déconnectez-vous puis reconnectez-vous.';
