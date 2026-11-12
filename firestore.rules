@@ -1,0 +1,66 @@
+rules_version = '2';
+
+// Règles de sécurité de la base « Juste une part, merci ! »
+// À coller dans Firebase : Firestore Database → onglet Règles → Publier.
+// Remplace ADRESSE_ELODIE@exemple.fr par l'adresse du compte d'Élodie
+// (la même que ADMIN_EMAIL dans firebase-config.js).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function estElodie() {
+      return request.auth != null
+        && request.auth.token.email == 'ADRESSE_ELODIE@exemple.fr';
+    }
+
+    // Commande envoyée depuis le site : seulement une nouvelle demande, bien formée
+    function commandeDuSiteValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['numero', 'client', 'lignes', 'total', 'dateRetrait', 'heure', 'message', 'statut', 'source', 'notes', 'acompte', 'paye', 'stockDeduit', 'creeLe'])
+        && d.statut == 'nouvelle' && d.source == 'site'
+        && d.paye == false && d.acompte == 0 && d.stockDeduit == false && d.notes == ''
+        && d.numero is string && d.numero.size() <= 12
+        && d.client is map && d.client.keys().hasOnly(['nom', 'tel', 'email'])
+        && d.client.nom is string && d.client.nom.size() > 0 && d.client.nom.size() <= 120
+        && d.client.tel is string && d.client.tel.size() <= 30
+        && d.client.email is string && d.client.email.size() <= 120
+        && d.lignes is list && d.lignes.size() > 0 && d.lignes.size() <= 30
+        && d.total is number && d.total >= 0 && d.total < 5000
+        && d.dateRetrait is string && d.dateRetrait.size() <= 10
+        && d.heure is string && d.heure.size() <= 40
+        && d.message is string && d.message.size() <= 2000
+        && d.creeLe is number;
+    }
+
+    // Catalogue : le site lit les gâteaux visibles, Élodie gère tout
+    match /produits/{id} {
+      allow read: if resource.data.visible == true || estElodie();
+      allow write: if estElodie();
+    }
+
+    // Infos du site (téléphone, horaires, ouverture des commandes)
+    match /parametres/{id} {
+      allow read: if true;
+      allow write: if estElodie();
+    }
+
+    // Commandes : les clients peuvent en créer, seule Élodie peut les lire et les modifier
+    match /commandes/{id} {
+      allow create: if estElodie() || commandeDuSiteValide();
+      allow read, update, delete: if estElodie();
+    }
+
+    // Stock et recettes : réservés à Élodie
+    match /ingredients/{id} {
+      allow read, write: if estElodie();
+    }
+    match /recettes/{id} {
+      allow read, write: if estElodie();
+    }
+
+    // Tout le reste est fermé
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

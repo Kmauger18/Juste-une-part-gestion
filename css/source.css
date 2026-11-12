@@ -1,0 +1,29 @@
+/* Source des styles : compilée vers css/style.css (voir README.md) */
+@font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 400 900; font-display: swap; src: url(../fonts/playfair-display-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 300 400; font-display: swap; src: url(../fonts/plus-jakarta-sans-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url(../fonts/plus-jakarta-sans-latin-500-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url(../fonts/plus-jakarta-sans-latin-600-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url(../fonts/plus-jakarta-sans-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 800 900; font-display: swap; src: url(../fonts/plus-jakarta-sans-latin-800-normal.woff2) format('woff2'); }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :focus-visible { outline: 3px solid #C15C3D; outline-offset: 2px; }
+  h1, h2, h3 { text-wrap: balance; }
+  input[type=number] { -moz-appearance: textfield; }
+  input[type=number]::-webkit-inner-spin-button { opacity: .4; }
+  .fa-solid, .fa-regular { display: inline-block; min-width: 1em; }
+}
+
+@layer components {
+  .panneau-fond { opacity: 0; transition: opacity .2s ease; }
+  .panneau-boite { transform: translateX(100%); transition: transform .22s cubic-bezier(.2,.8,.2,1); }
+  #panneau.ouvert .panneau-fond { opacity: 1; }
+  #panneau.ouvert .panneau-boite { transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .panneau-fond, .panneau-boite { transition: none; }
+  }
+}

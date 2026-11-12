@@ -1,0 +1,12 @@
+{
+  "name": "Gestion · Juste une part, merci !",
+  "short_name": "Gestion pâtisserie",
+  "icons": [
+    { "src": "img/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "img/icone-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#341A0B",
+  "background_color": "#FAF6F0",
+  "display": "standalone",
+  "start_url": "./"
+}
