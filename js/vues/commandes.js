@@ -27,7 +27,7 @@ function telLien(tel) { return String(tel || '').replace(/[^0-9+]/g, ''); }
 function smsConfirmation(c) {
   const lignes = (c.lignes || []).map(l => `${l.qty} × ${l.titre}${l.taille && !l.titre.includes(l.taille) ? ` (${l.taille})` : ''}`).join(', ');
   const reste = Math.max(0, (Number(c.total) || 0) - (Number(c.acompte) || 0));
-  return `Bonjour ${(c.client?.nom || '').replace(/^Exemple · /, '').split(' ')[0]}, c'est Élodie de « Juste une part, merci ! ». Votre commande ${c.numero || ''} est confirmée : ${lignes}. Retrait ${dateLongue(c.dateRetrait)}${c.heure ? ', ' + c.heure : ''}. Montant : ${euro(c.total)}${c.acompte ? ` (acompte reçu ${euro(c.acompte)}, reste ${euro(reste)})` : ''}. À bientôt !`;
+  return `Bonjour ${(c.client?.nom || '').replace(/^Exemple · /, '').split(' ')[0]}, c'est Élodie de « Féelodie's ». Votre commande ${c.numero || ''} est confirmée : ${lignes}. Retrait ${dateLongue(c.dateRetrait)}${c.heure ? ', ' + c.heure : ''}. Montant : ${euro(c.total)}${c.acompte ? ` (acompte reçu ${euro(c.acompte)}, reste ${euro(reste)})` : ''}. À bientôt !`;
 }
 
 function carte(c) {

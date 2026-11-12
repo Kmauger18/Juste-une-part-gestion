@@ -59,7 +59,7 @@ function afficher(changementDeRoute) {
   const selection = idFocus && 'selectionStart' in actif ? [actif.selectionStart, actif.selectionEnd] : null;
   const defilement = window.scrollY;
 
-  document.title = `${def.titre} | Gestion Juste une part`;
+  document.title = `${def.titre} · Gestion Féelodie's`;
   $('#titre-mobile').textContent = def.titre;
   dessinerNavigation(nom);
   def.vue.render(el, { param, changementDeRoute });

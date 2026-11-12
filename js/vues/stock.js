@@ -185,7 +185,7 @@ function listeDeCourses() {
     items[i.id].fournisseur = i.fournisseur;
   });
   const liste_ = Object.values(items).sort((a, b) => (a.fournisseur || '').localeCompare(b.fournisseur || '') || a.nom.localeCompare(b.nom));
-  const texte = 'Courses – Juste une part, merci !\n' + liste_.map(x => `☐ ${x.nom} : ${formaterQuantite(x.qte, x.unite)}${x.fournisseur ? ` (${x.fournisseur})` : ''}`).join('\n');
+  const texte = "Courses – Féelodie's\n" + liste_.map(x => `☐ ${x.nom} : ${formaterQuantite(x.qte, x.unite)}${x.fournisseur ? ` (${x.fournisseur})` : ''}`).join('\n');
   ouvrirPanneau({
     titre: 'Liste de courses',
     contenu: liste_.length ? `<p class="text-sm text-brand-600 mb-4">Ce qui manque pour les commandes des 7 prochains jours, plus les ingrédients sous leur seuil d'alerte (quantité conseillée : de quoi revenir au double du seuil).</p>
