@@ -51,7 +51,7 @@ export function toast(message, type = 'ok') {
   el.querySelector('i').className = type === 'erreur' ? 'fa-solid fa-circle-exclamation text-red-300' : 'fa-solid fa-circle-check text-emerald-300';
   el.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
   clearTimeout(minuteurToast);
-  minuteurToast = setTimeout(() => el.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none'), 2800);
+  minuteurToast = setTimeout(() => el.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none'), type === 'erreur' ? 9000 : 2800);
 }
 
 // ---------- Panneau latéral (plein écran sur mobile) ----------

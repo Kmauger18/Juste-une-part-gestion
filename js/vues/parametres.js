@@ -1,5 +1,5 @@
 // Paramètres : infos du site, ouverture des commandes, sauvegardes
-import { parametres, enregistrer, mode, exporterTout, importerSauvegarde, importerCatalogueSite, reinitialiserDemo, deconnexion, liste } from '../store.js';
+import { parametres, enregistrer, mode, exporterTout, importerSauvegarde, importerCatalogueSite, reinitialiserDemo, deconnexion, liste, utilisateurCourant, messageErreur } from '../store.js';
 import { $, esc, isoJour, toast, confirmer, champ, interrupteur, telecharger, BTN } from '../ui.js';
 
 export default {
@@ -48,7 +48,7 @@ export default {
             <h2 class="font-semibold text-lg">Compte</h2>
             ${mode === 'demo' ? `<p class="text-sm text-amber-900 bg-amber-50 rounded-xl p-3">Mode démo : Firebase n'est pas encore configuré (voir GUIDE-FIREBASE.md dans le dépôt). Les données d'exemple restent sur cet appareil.</p>
               <button type="button" data-pa="reinit" class="${BTN.secondaire} w-full"><i class="fa-solid fa-rotate"></i> Remettre les données d'exemple à zéro</button>`
-              : '<p class="text-sm text-brand-600">Connectée avec le compte Firebase. Les données sont synchronisées entre le téléphone et l\'ordinateur.</p>'}
+              : `<p class="text-sm text-brand-600">Connecté avec <strong class="text-brand-900 break-all">${esc(utilisateurCourant())}</strong>. Les données sont synchronisées entre le téléphone et l'ordinateur.</p>`}
             <button type="button" data-pa="deconnexion" class="${BTN.danger} w-full"><i class="fa-solid fa-right-from-bracket"></i> Se déconnecter</button>
           </section>
         </div>
@@ -58,11 +58,11 @@ export default {
     $('#form-infos', el).onsubmit = async e => {
       e.preventDefault();
       const v = id => $('#pa-' + id, el).value.trim();
-      await enregistrer('parametres', 'infos', {
+      try { await enregistrer('parametres', 'infos', {
         telephone: v('telephone'), email: v('email'), adresse: v('adresse'), horairesSemaine: v('horairesSemaine'), horairesDimanche: v('horairesDimanche'),
         creneaux: v('creneaux'), commandesOuvertes: $('#pa-ouvertes', el).checked, messageFermeture: v('messageFermeture')
       });
-      toast('Infos enregistrées, le site est à jour');
+      toast('Infos enregistrées, le site est à jour'); } catch (err) { toast(messageErreur(err), 'erreur'); }
     };
     $('#pa-restaurer', el).onchange = async e => {
       const f = e.target.files[0]; if (!f) return;
@@ -74,7 +74,12 @@ export default {
     el.onclick = async e => {
       const a = e.target.closest('[data-pa]'); if (!a) return;
       if (a.dataset.pa === 'exporter') { telecharger(exporterTout(), `sauvegarde-juste-une-part-${isoJour()}.json`); toast('Sauvegarde téléchargée'); }
-      if (a.dataset.pa === 'importer' && await confirmer('Importer les 8 gâteaux d\'origine du site ? Ceux qui existent déjà avec le même nom d\'origine seront remis à leur version initiale.', { bouton: 'Importer' })) { await importerCatalogueSite(); toast('Catalogue importé'); }
+      if (a.dataset.pa === 'importer' && await confirmer('Importer les 8 gâteaux d\'origine du site ? Ceux qui existent déjà avec le même nom d\'origine seront remis à leur version initiale.', { bouton: 'Importer' })) {
+        const texte = a.innerHTML; a.disabled = true; a.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Import en cours…';
+        try { const r = await importerCatalogueSite(); toast(r === 'attente' ? 'Catalogue enregistré sur l\'appareil, synchronisation en cours…' : 'Catalogue importé : 8 gâteaux'); }
+        catch (err) { toast(messageErreur(err), 'erreur'); }
+        finally { a.disabled = false; a.innerHTML = texte; }
+      }
       if (a.dataset.pa === 'reinit' && await confirmer('Effacer les modifications de la démo et revenir aux données d\'exemple ?', { bouton: 'Remettre à zéro', danger: true })) { reinitialiserDemo(); toast('Données d\'exemple restaurées'); }
       if (a.dataset.pa === 'deconnexion') await deconnexion();
     };

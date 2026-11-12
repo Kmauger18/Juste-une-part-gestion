@@ -1,5 +1,5 @@
 // Produits : le catalogue affiché sur le site
-import { liste, obtenir, creer, enregistrer, modifier, supprimer, importerCatalogueSite, mode, db } from '../store.js';
+import { liste, obtenir, creer, enregistrer, modifier, supprimer, importerCatalogueSite, mode, db, messageErreur } from '../store.js';
 import { CATEGORIES, ALLERGENES, TAILLES } from '../donnees.js';
 import { $, $$, esc, euro, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, interrupteur, etatVide, compresserImage, BTN } from '../ui.js';
 import { margeProduit } from '../calculs.js';
@@ -68,7 +68,11 @@ export default {
       if (v) { const p = obtenir('produits', v.dataset.vedette); await modifier('produits', p.id, { vedette: !p.vedette }); toast(p.vedette ? 'Retiré de la page d\'accueil' : 'Mis en avant sur la page d\'accueil'); return; }
       const a = t.closest('[data-p]');
       if (a?.dataset.p === 'nouveau') formulaireProduit(null);
-      if (a?.dataset.p === 'importer') { await importerCatalogueSite(); toast('Catalogue importé'); }
+      if (a?.dataset.p === 'importer') {
+        a.disabled = true; a.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Import en cours…';
+        try { const r = await importerCatalogueSite(); toast(r === 'attente' ? 'Catalogue enregistré sur l\'appareil, synchronisation en cours…' : 'Catalogue importé : 8 gâteaux'); }
+        catch (err) { toast(messageErreur(err), 'erreur'); a.disabled = false; a.innerHTML = '<i class="fa-solid fa-file-import"></i> Importer le catalogue du site'; }
+      }
     };
     el.onchange = async e => {
       const v = e.target.closest('[data-visible]');

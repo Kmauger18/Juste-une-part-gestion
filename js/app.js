@@ -49,6 +49,9 @@ function afficher(changementDeRoute) {
   const { nom, param } = routeDepuisAdresse();
   const def = VUES[nom];
   const el = $('#vue');
+  const be = $('#bandeau-erreur');
+  be.classList.toggle('hidden', !store.erreurLecture);
+  if (store.erreurLecture) $('#bandeau-erreur span').textContent = store.messageErreur(store.erreurLecture);
 
   // Garder le champ en cours de saisie quand les données se mettent à jour
   const actif = document.activeElement;
@@ -135,6 +138,12 @@ async function demarrer() {
     if (a.dataset.action === 'deconnexion') await store.deconnexion();
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && panneauOuvert()) fermerPanneau(); });
+  // Toute erreur d'enregistrement est affichée au lieu de passer inaperçue
+  store.surErreur(err => toast(store.messageErreur(err), 'erreur'));
+  window.addEventListener('unhandledrejection', e => {
+    const err = e.reason;
+    if (err && (err.code || err.name === 'FirebaseError')) { e.preventDefault(); toast(store.messageErreur(err), 'erreur'); }
+  });
   window.addEventListener('hashchange', () => { fermerPanneau(); if (!$('#app').classList.contains('hidden')) afficher(true); });
   store.surChangement(() => { if (!$('#app').classList.contains('hidden')) afficher(false); });
 

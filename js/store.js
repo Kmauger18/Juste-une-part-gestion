@@ -16,6 +16,31 @@ function notifier() {
 }
 export function surChangement(f) { abonnes.add(f); return () => abonnes.delete(f); }
 
+// ---------- Erreurs ----------
+export let erreurLecture = null;          // dernière erreur de lecture (droits, réseau…)
+let gestionnaireErreur = () => {};
+export function surErreur(f) { gestionnaireErreur = f; }
+export function utilisateurCourant() { return fb?.auth?.currentUser?.email || (mode === 'demo' ? 'mode démo' : ''); }
+export function messageErreur(err) {
+  const code = err?.code || '';
+  if (code.includes('permission-denied')) {
+    return `Firebase a refusé l'accès. Compte connecté : ${utilisateurCourant() || 'aucun'}. Les règles Firestore n'autorisent que ${ADMIN_EMAIL || 'l\'adresse indiquée dans firestore.rules'} : connectez-vous avec ce compte, ou mettez la bonne adresse dans les règles et republiez-les.`;
+  }
+  if (code.includes('unavailable') || code.includes('network')) return 'Firebase est injoignable (pas de réseau, ou un bloqueur de publicité bloque firestore.googleapis.com). Les modifications sont gardées sur l\'appareil et partiront dès que la connexion revient.';
+  if (code.includes('unauthenticated')) return 'Session expirée : déconnectez-vous puis reconnectez-vous.';
+  return 'Erreur Firebase : ' + (err?.message || code || 'inconnue');
+}
+
+// Attend la confirmation du serveur au plus 8 s ; au-delà, l'écriture reste
+// en file d'attente sur l'appareil et une erreur éventuelle est signalée plus tard.
+function suivre(promesse) {
+  let regle = false;
+  const delai = new Promise(res => setTimeout(() => { if (!regle) { regle = true; res('attente'); } }, 8000));
+  const suivie = promesse.then(v => { regle = true; return v; }, e => { if (regle) gestionnaireErreur(e); regle = true; throw e; });
+  suivie.catch(() => {});
+  return Promise.race([suivie, delai]);
+}
+
 export function liste(col) { return Object.entries(db[col]).map(([id, v]) => ({ id, ...v })); }
 export function obtenir(col, id) { const v = db[col][id]; return v ? { id, ...v } : null; }
 export function parametres() { return { ...PARAMETRES_DEFAUT, ...(db.parametres.infos || {}) }; }
@@ -68,8 +93,9 @@ function ecouterTout() {
     const m = {};
     snap.forEach(d => { m[d.id] = d.data(); });
     db[c] = m;
+    if (erreurLecture) erreurLecture = null;
     notifier();
-  }, err => console.error('Lecture ' + c, err)));
+  }, err => { console.error('Lecture ' + c, err); erreurLecture = err; notifier(); }));
 }
 
 // =====================================================================
@@ -125,26 +151,26 @@ export async function creer(col, donnees, id) {
     db[col][nouvelId] = data; demo.sauver(); notifier();
     return nouvelId;
   }
-  if (id) { await fb.f.setDoc(fb.f.doc(fb.fs, col, id), data); return id; }
-  const ref = await fb.f.addDoc(fb.f.collection(fb.fs, col), data);
+  const ref = id ? fb.f.doc(fb.fs, col, id) : fb.f.doc(fb.f.collection(fb.fs, col));
+  await suivre(fb.f.setDoc(ref, data));
   return ref.id;
 }
 
 export async function enregistrer(col, id, donnees) {
   const data = nettoyer(donnees);
   if (mode === 'demo') { db[col][id] = data; demo.sauver(); notifier(); return; }
-  await fb.f.setDoc(fb.f.doc(fb.fs, col, id), data);
+  await suivre(fb.f.setDoc(fb.f.doc(fb.fs, col, id), data));
 }
 
 export async function modifier(col, id, champs) {
   const data = nettoyer(champs);
   if (mode === 'demo') { db[col][id] = { ...(db[col][id] || {}), ...data }; demo.sauver(); notifier(); return; }
-  await fb.f.setDoc(fb.f.doc(fb.fs, col, id), data, { merge: true });
+  await suivre(fb.f.setDoc(fb.f.doc(fb.fs, col, id), data, { merge: true }));
 }
 
 export async function supprimer(col, id) {
   if (mode === 'demo') { delete db[col][id]; demo.sauver(); notifier(); return; }
-  await fb.f.deleteDoc(fb.f.doc(fb.fs, col, id));
+  await suivre(fb.f.deleteDoc(fb.f.doc(fb.fs, col, id)));
 }
 
 // Plusieurs écritures en une fois : [{ type: 'set'|'merge'|'delete', col, id, data }]
@@ -165,14 +191,15 @@ export async function lot(operations) {
       else if (o.type === 'merge') b.set(ref, nettoyer(o.data), { merge: true });
       else b.set(ref, nettoyer(o.data));
     });
-    await b.commit();
+    const r = await suivre(b.commit());
+    if (r === 'attente') return 'attente';
   }
 }
 
 export async function importerCatalogueSite() {
   const ops = Object.entries(CATALOGUE_SITE).map(([id, data]) => ({ type: 'set', col: 'produits', id, data }));
   if (!db.parametres.infos) ops.push({ type: 'set', col: 'parametres', id: 'infos', data: PARAMETRES_DEFAUT });
-  await lot(ops);
+  return lot(ops);
 }
 
 export function reinitialiserDemo() { demo.reinitialiser(); }
