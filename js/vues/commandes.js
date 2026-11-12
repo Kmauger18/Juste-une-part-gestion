@@ -2,7 +2,7 @@
 import { liste, obtenir, parametres, creer, enregistrer, modifier, supprimer, lot, db } from '../store.js';
 import { STATUTS, ORDRE_STATUTS, TAILLES } from '../donnees.js';
 import { $, $$, esc, euro, isoJour, dateRelative, dateLongue, ecartJours, badgeStatut, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, interrupteur, etatVide, BTN } from '../ui.js';
-import { besoinsCommandes, operationsDeduction, totalCommande, formaterQuantite, prochainNumero } from '../calculs.js';
+import { besoinsCommandes, besoinsMateriel, operationsDeduction, totalCommande, formaterQuantite, prochainNumero } from '../calculs.js';
 
 const FILTRES = {
   atraiter: { label: 'À confirmer', statuts: ['nouvelle'] },
@@ -162,6 +162,20 @@ export function ouvrirCommande(id) {
           ${besoins.length ? `<div class="px-4 py-3 border-t border-brand-100"><button type="button" data-stock="${c.stockDeduit ? 'rendre' : 'deduire'}" class="${BTN.secondaire} w-full">${c.stockDeduit ? '<i class="fa-solid fa-rotate-left"></i> Remettre les ingrédients en stock' : '<i class="fa-solid fa-minus"></i> Déduire les ingrédients du stock'}</button>
             ${!c.stockDeduit ? '<p class="text-xs text-brand-500 mt-2">Se fait automatiquement quand la commande passe à « Prête ».</p>' : ''}</div>` : ''}
         </section>
+
+        ${(() => {
+          const mat = besoinsMateriel([c]);
+          if (!mat.length) return '';
+          const memeJour = liste('commandes').filter(x => x.dateRetrait && x.dateRetrait === c.dateRetrait && ['nouvelle', 'confirmee', 'preparation'].includes(x.statut));
+          const jour = memeJour.length > 1 ? besoinsMateriel(memeJour) : null;
+          const manque = mat.some(l => l.manque > 0) || (jour && jour.some(l => l.manque > 0));
+          return `<section class="bg-white rounded-2xl border ${manque ? 'border-red-300' : 'border-brand-200'} overflow-hidden">
+            <div class="px-4 pt-4 pb-2 flex items-center justify-between gap-2"><h3 class="text-xs font-bold uppercase tracking-wider text-brand-500">Matériel nécessaire</h3>
+              <span class="text-[11px] font-semibold ${manque ? 'text-red-700' : 'text-emerald-700'}">${manque ? '<i class="fa-solid fa-triangle-exclamation"></i> Il en manque' : '<i class="fa-solid fa-check"></i> Tout est disponible'}</span></div>
+            <ul class="divide-y divide-brand-100 text-sm">${mat.map(l => `<li class="flex items-center justify-between gap-3 px-4 py-2"><span class="flex items-center gap-2"><i class="fa-solid ${l.manque ? 'fa-xmark text-red-600' : 'fa-check text-emerald-600'} w-4"></i>${esc(l.nom)}</span><span class="tabular-nums whitespace-nowrap ${l.manque ? 'text-red-700 font-semibold' : 'text-brand-600'}">${l.besoin} / ${l.dispo} dispo.</span></li>`).join('')}</ul>
+            ${jour && jour.some(l => l.manque > 0) ? `<p class="px-4 py-2.5 text-xs text-red-800 bg-red-50 border-t border-red-100">Avec les ${memeJour.length} commandes du même jour, il manque : ${esc(jour.filter(l => l.manque > 0).map(l => `${l.nom} (${l.besoin} nécessaires, ${l.dispo} dispo.)`).join(', '))}.</p>` : ''}
+          </section>`;
+        })()}
 
         <section>${champ({ id: 'cmd-notes', label: 'Notes pour moi', type: 'textarea', valeur: c.notes || '', attrs: 'placeholder="Décor, allergie, à rappeler…"' })}</section>
       </div>`;

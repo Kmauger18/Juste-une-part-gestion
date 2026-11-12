@@ -131,3 +131,33 @@ export function prochainNumero() {
   const nums = liste('commandes').filter(c => /^C-\d+$/.test(c.numero || '')).map(c => parseInt(c.numero.slice(2), 10));
   return 'C-' + (nums.length ? Math.max(...nums) + 1 : 1001);
 }
+
+// ---------- Matériel ----------
+export function recettesUtilisantMateriel(materielId) {
+  return Object.entries(db.recettes).filter(([, r]) => (r.materiel || []).some(l => l.materielId === materielId)).map(([id, r]) => db.produits[id]?.titre || r.titre || id);
+}
+
+// Matériel nécessaire pour des commandes (préparées en même temps) comparé au matériel disponible
+export function besoinsMateriel(commandes) {
+  const total = {};
+  commandes.forEach(c => (c.lignes || []).forEach(l => {
+    const r = l.produitId ? db.recettes[l.produitId] : null;
+    (r?.materiel || []).forEach(m => { total[m.materielId] = (total[m.materielId] || 0) + (Number(m.quantite) || 1) * (Number(l.qty) || 1); });
+  }));
+  return Object.entries(total).map(([id, besoin]) => {
+    const m = db.materiel[id] || { nom: 'Matériel supprimé', quantite: 0 };
+    const dispo = Number(m.quantite) || 0;
+    return { id, nom: m.nom, besoin, dispo, manque: Math.max(0, besoin - dispo) };
+  }).sort((a, b) => b.manque - a.manque || a.nom.localeCompare(b.nom));
+}
+
+// Jours à venir où le matériel ne suffit pas pour les commandes du jour
+export function alertesMateriel(jours = 7) {
+  const auj = isoJour(), fin = ajouterJours(auj, jours);
+  const parJour = {};
+  liste('commandes').filter(c => ['nouvelle', 'confirmee', 'preparation'].includes(c.statut) && c.dateRetrait && c.dateRetrait >= auj && c.dateRetrait <= fin)
+    .forEach(c => { (parJour[c.dateRetrait] = parJour[c.dateRetrait] || []).push(c); });
+  const alertes = [];
+  Object.entries(parJour).sort().forEach(([jour, cmds]) => besoinsMateriel(cmds).filter(b => b.manque > 0).forEach(b => alertes.push({ jour, ...b })));
+  return alertes;
+}

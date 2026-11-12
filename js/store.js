@@ -2,7 +2,7 @@
 import { firebaseConfig, firebaseActif, ADMIN_EMAIL, FIREBASE_SDK } from '../firebase-config.js';
 import { donneesDemo, CATALOGUE_SITE, PARAMETRES_DEFAUT } from './donnees.js';
 
-export const COLLECTIONS = ['produits', 'commandes', 'ingredients', 'recettes', 'parametres'];
+export const COLLECTIONS = ['produits', 'commandes', 'ingredients', 'materiel', 'recettes', 'parametres'];
 export const mode = firebaseActif ? 'firebase' : 'demo';
 
 // Données en mémoire : { produits: { id: {...} }, ... }
@@ -57,6 +57,7 @@ const demo = {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(CLE_DEMO)); } catch (e) { d = null; }
     if (!d) d = donneesDemo();
+    if (!d.materiel) { const neuf = donneesDemo(); d.materiel = neuf.materiel; Object.entries(neuf.recettes).forEach(([id, r]) => { if (d.recettes?.[id] && !d.recettes[id].materiel) d.recettes[id].materiel = r.materiel; }); }
     COLLECTIONS.forEach(c => { db[c] = d[c] || {}; });
     this.sauver();
   },

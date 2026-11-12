@@ -1,8 +1,10 @@
 // Tableau de bord
 import { liste, parametres } from '../store.js';
 import { esc, euro, isoJour, ajouterJours, ecartJours, versDate, badgeStatut, BTN } from '../ui.js';
-import { chiffreAffaires, caParSemaine, produitsLesPlusVendus, stockBas, besoinsCommandes, resteAEncaisser, formaterQuantite } from '../calculs.js';
+import { chiffreAffaires, caParSemaine, produitsLesPlusVendus, stockBas, besoinsCommandes, resteAEncaisser, formaterQuantite, alertesMateriel } from '../calculs.js';
 import { ouvrirCommande } from './commandes.js';
+
+function dateCourteJ(iso) { return versDate(iso).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }); }
 
 function jourCourt(iso) {
   if (!iso) return '—';
@@ -64,6 +66,8 @@ export default {
     const besoins = besoinsCommandes(aVenir.filter(c => c.statut !== 'prete'));
     const manques = besoins.lignes.filter(l => l.manque > 0);
     const bas = stockBas();
+    const alertesMat = alertesMateriel(7);
+    const horsService = liste('materiel').filter(m => (Number(m.quantite) || 0) <= 0);
     const top = produitsLesPlusVendus(90, 5);
     const nomMois = d.toLocaleDateString('fr-FR', { month: 'long' });
     const salut = d.getHours() < 18 ? 'Bonjour' : 'Bonsoir';
@@ -126,6 +130,13 @@ export default {
               : `<p class="px-4 py-5 text-sm text-emerald-700 flex items-center gap-2"><i class="fa-solid fa-circle-check"></i> Le stock couvre les commandes à venir.</p>`}
             ${besoins.sansRecette.length ? `<p class="px-4 py-2.5 text-xs text-brand-500 bg-brand-50 border-t border-brand-100">Sans recette, non comptés : ${esc(besoins.sansRecette.join(', '))}</p>` : ''}
           </div>
+
+          ${alertesMat.length || horsService.length ? `<div class="bg-white rounded-2xl border border-red-200 overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-red-100 bg-red-50"><h2 class="font-semibold text-red-900 flex items-center gap-2"><i class="fa-solid fa-whisk"></i> Matériel</h2><a href="#stock/materiel" class="text-xs font-semibold text-red-800 hover:underline">Voir le matériel</a></div>
+            <ul class="divide-y divide-brand-100 text-sm">
+              ${alertesMat.map(a => `<li class="px-4 py-2.5"><span class="font-medium">${esc(a.nom)}</span><span class="block text-xs text-red-700">${esc(dateCourteJ(a.jour))} : ${a.besoin} nécessaires, ${a.dispo} disponible${a.dispo > 1 ? 's' : ''}</span></li>`).join('')}
+              ${horsService.filter(m => !alertesMat.some(a => a.id === m.id)).map(m => `<li class="flex items-center justify-between gap-3 px-4 py-2.5"><span class="font-medium">${esc(m.nom)}</span><span class="text-xs text-brand-500 whitespace-nowrap">indisponible</span></li>`).join('')}
+            </ul></div>` : ''}
 
           <div class="bg-white rounded-2xl border border-brand-200 overflow-hidden">
             <div class="flex items-center justify-between px-4 py-3 border-b border-brand-100"><h2 class="font-semibold">Stock bas</h2><a href="#stock" class="text-xs font-semibold text-terracotta hover:underline">Gérer le stock</a></div>

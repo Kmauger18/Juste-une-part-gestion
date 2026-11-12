@@ -1,10 +1,18 @@
-// Stock des ingrédients
+// Stock : ingrédients et matériel
 import { liste, obtenir, creer, enregistrer, modifier, supprimer, db } from '../store.js';
 import { UNITES } from '../donnees.js';
 import { $, esc, euro, isoJour, ajouterJours, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, etatVide, BTN } from '../ui.js';
 import { formaterQuantite, coutIngredient, besoinsCommandes } from '../calculs.js';
+import { renderMateriel } from './materiel.js';
 
 let filtre = 'tous';
+let onglet = 'ingredients';
+
+function barreOnglets() {
+  const nbM = liste('materiel').length, nbI = liste('ingredients').length;
+  return `<div class="flex items-center justify-between gap-3 mb-5"><h1 class="hidden lg:block font-display text-3xl">Stock</h1>
+    <div class="flex p-1 bg-white border border-brand-200 rounded-2xl w-full lg:w-auto" role="tablist">${[['ingredients', 'Ingrédients', nbI, 'fa-solid fa-wheat-awn'], ['materiel', 'Matériel', nbM, 'fa-solid fa-whisk']].map(([k, l, n, ic]) => `<button type="button" role="tab" aria-selected="${k === onglet}" data-onglet="${k}" class="flex-1 lg:flex-none px-4 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 ${k === onglet ? 'bg-brand-900 text-white' : 'text-brand-700 hover:bg-brand-50'}"><i class="${ic}"></i>${l} <span class="${k === onglet ? 'text-brand-300' : 'text-brand-400'}">${n}</span></button>`).join('')}</div></div>`;
+}
 let recherche = '';
 
 function etat(i) {
@@ -18,7 +26,9 @@ function etat(i) {
 function pas(unite) { return unite === 'piece' ? 1 : unite === 'ml' ? 250 : 250; }
 
 export default {
-  render(el) {
+  render(el, ctx = {}) {
+    if (ctx.changementDeRoute) onglet = ctx.param === 'materiel' ? 'materiel' : 'ingredients';
+    if (onglet === 'materiel') { renderMateriel(el, barreOnglets(), () => this.render(el)); return; }
     const tous = liste('ingredients').sort((a, b) => a.nom.localeCompare(b.nom));
     const aRacheter = tous.filter(i => (Number(i.quantite) || 0) <= (Number(i.seuil) || 0));
     const valeur = tous.reduce((s, i) => s + coutIngredient(i.id, i.quantite), 0);
@@ -26,8 +36,8 @@ export default {
     if (recherche) visibles = visibles.filter(i => (i.nom + ' ' + (i.fournisseur || '')).toLowerCase().includes(recherche.toLowerCase()));
 
     el.innerHTML = `
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <h1 class="hidden lg:block font-display text-3xl">Stock</h1>
+      ${barreOnglets()}
+      <div class="flex flex-wrap items-center justify-end gap-3 mb-5">
         <div class="flex gap-2 w-full sm:w-auto">
           <button type="button" data-s="courses" class="${BTN.secondaire} flex-1 sm:flex-none"><i class="fa-solid fa-basket-shopping"></i> Liste de courses</button>
           <button type="button" data-s="nouveau" class="${BTN.principal} flex-1 sm:flex-none"><i class="fa-solid fa-plus"></i> Ingrédient</button>
@@ -64,6 +74,7 @@ export default {
       : etatVide({ icone: 'fa-solid fa-boxes-stacked', titre: recherche || filtre !== 'tous' ? 'Rien à afficher' : 'Stock vide', texte: recherche || filtre !== 'tous' ? 'Aucun ingrédient ne correspond.' : 'Ajoutez vos ingrédients avec leur prix : les recettes calculeront le coût de revient et le stock se mettra à jour avec les commandes.' })}`;
 
     el.onclick = async e => {
+      const o = e.target.closest('[data-onglet]'); if (o) { location.hash = 'stock/' + o.dataset.onglet; return; }
       const f = e.target.closest('[data-filtre]'); if (f) { filtre = f.dataset.filtre; this.render(el); return; }
       const ed = e.target.closest('[data-editer]'); if (ed) { formulaireIngredient(obtenir('ingredients', ed.dataset.editer)); return; }
       const mv = e.target.closest('[data-mouvement]'); if (mv) { mouvement(obtenir('ingredients', mv.dataset.mouvement)); return; }

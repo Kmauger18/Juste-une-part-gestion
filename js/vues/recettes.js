@@ -1,6 +1,6 @@
 // Recettes : fiches cuisine, coût de revient et marge
 import { liste, obtenir, enregistrer, supprimer, creer, db } from '../store.js';
-import { UNITES } from '../donnees.js';
+import { UNITES, CATEGORIES_MATERIEL } from '../donnees.js';
 import { $, $$, esc, euro, nombre, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN } from '../ui.js';
 import { coutRecette, coutIngredient, margeProduit, formaterQuantite } from '../calculs.js';
 
@@ -84,6 +84,14 @@ export function ouvrirRecette(id) {
         <ul id="fiche-ingredients" class="divide-y divide-brand-100"></ul>
         <div class="flex justify-between text-sm border-t border-brand-200 py-2.5 text-brand-600"><span>Coût des ingrédients</span><strong id="fiche-cout" class="tabular-nums text-brand-900"></strong></div>
       </section>
+      ${(r.materiel || []).length ? (() => {
+        const lignes = r.materiel.map(l => { const mt = db.materiel[l.materielId]; const dispo = Number(mt?.quantite) || 0; return { nom: mt?.nom || 'Matériel supprimé', besoin: Number(l.quantite) || 1, dispo }; });
+        const ok = lignes.every(l => l.dispo >= l.besoin);
+        return `<section class="bg-white rounded-2xl border ${ok ? 'border-brand-200' : 'border-red-300'} px-4 py-2">
+          <div class="flex items-center justify-between pt-2"><h3 class="text-xs font-bold uppercase tracking-wider text-brand-500">Matériel</h3>
+            <span class="text-xs font-semibold ${ok ? 'text-emerald-700' : 'text-red-700'}">${ok ? '<i class="fa-solid fa-circle-check"></i> Tout est disponible' : '<i class="fa-solid fa-triangle-exclamation"></i> Il manque du matériel'}</span></div>
+          <ul class="divide-y divide-brand-100">${lignes.map(l => `<li class="flex items-center justify-between gap-3 py-2.5"><span class="flex items-center gap-2.5 text-[15px]"><i class="fa-solid ${l.dispo >= l.besoin ? 'fa-check text-emerald-600' : 'fa-xmark text-red-600'} w-4"></i>${esc(l.nom)}</span><span class="text-sm tabular-nums whitespace-nowrap ${l.dispo >= l.besoin ? 'text-brand-600' : 'text-red-700 font-semibold'}">${l.besoin > 1 ? l.besoin + ' nécessaires · ' : ''}${l.dispo} dispo.</span></li>`).join('')}</ul></section>`;
+      })() : ''}
       ${m ? `<section class="grid grid-cols-3 gap-2 text-center">
         <div class="bg-white rounded-xl border border-brand-200 p-3"><div class="text-[11px] text-brand-500">Coût (${m.parts} parts)</div><div class="font-semibold tabular-nums">${euro(m.cout)}</div></div>
         <div class="bg-white rounded-xl border border-brand-200 p-3"><div class="text-[11px] text-brand-500">Prix de vente</div><div class="font-semibold tabular-nums">${euro(m.prix)}</div></div>
@@ -107,11 +115,25 @@ export function ouvrirRecette(id) {
 // Édition d'une recette
 export function editerRecette(id, libre = false) {
   const existante = db.recettes[id];
-  const r = JSON.parse(JSON.stringify(existante || { rendement: db.produits[id]?.tailles ? 8 : 1, tempsMin: 60, ingredients: [], etapes: '', titre: '' }));
+  const r = JSON.parse(JSON.stringify(existante || { rendement: db.produits[id]?.tailles ? 8 : 1, tempsMin: 60, ingredients: [], materiel: [], etapes: '', titre: '' }));
+  if (!r.materiel) r.materiel = [];
   if (!r.ingredients.length) r.ingredients.push({ ingredientId: '', quantite: 0 });
 
   const optionsIngredients = sel => `<option value="">Choisir…</option>` + liste('ingredients').sort((a, b) => a.nom.localeCompare(b.nom)).map(i => `<option value="${i.id}" ${i.id === sel ? 'selected' : ''}>${esc(i.nom)}</option>`).join('') + '<option value="__nouveau">+ Nouvel ingrédient…</option>';
 
+  const optionsMateriel = sel => `<option value="">Choisir…</option>` + liste('materiel').sort((a, b) => a.nom.localeCompare(b.nom)).map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.nom)}</option>`).join('') + '<option value="__nouveau">+ Nouveau matériel…</option>';
+  const dessinerMateriel = () => {
+    $('#rec-materiel').innerHTML = r.materiel.length ? r.materiel.map((l, i) => {
+      const mt = db.materiel[l.materielId];
+      const manque = mt && (Number(mt.quantite) || 0) < (Number(l.quantite) || 1);
+      return `<div class="grid grid-cols-[1fr_4.5rem_2.25rem] gap-2 items-center" data-mligne="${i}">
+        <select data-mchamp="materielId" class="min-w-0 rounded-lg border ${manque ? 'border-red-300' : 'border-brand-200'} px-2 py-2 text-sm bg-white" aria-label="Matériel">${optionsMateriel(l.materielId)}</select>
+        <input data-mchamp="quantite" type="number" min="1" step="1" value="${l.quantite || 1}" class="w-full rounded-lg border border-brand-200 px-2 py-2 text-sm tabular-nums text-center" aria-label="Nombre nécessaire">
+        <button type="button" data-msuppr="${i}" class="${BTN.icone}" aria-label="Retirer"><i class="fa-regular fa-trash-can"></i></button>
+        ${manque ? `<span class="col-span-3 -mt-1 text-[11px] text-red-700">Seulement ${Number(mt.quantite) || 0} disponible(s)</span>` : ''}
+      </div>`;
+    }).join('') : '<p class="text-sm text-brand-500">Aucun matériel indiqué.</p>';
+  };
   const dessinerLignes = () => {
     $('#rec-lignes').innerHTML = r.ingredients.map((l, i) => {
       const ing = db.ingredients[l.ingredientId];
@@ -143,6 +165,17 @@ export function editerRecette(id, libre = false) {
         <button type="button" id="rec-ajout" class="${BTN.secondaire} w-full"><i class="fa-solid fa-plus"></i> Ajouter un ingrédient</button>
         <p id="rec-cout" class="text-sm text-brand-700 bg-brand-100 rounded-xl px-3 py-2"></p>
       </section>
+      <section class="space-y-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-brand-500">Matériel nécessaire</h3>
+        <div id="rec-materiel" class="space-y-2"></div>
+        <button type="button" id="rec-ajout-materiel" class="${BTN.secondaire} w-full"><i class="fa-solid fa-plus"></i> Ajouter du matériel</button>
+      </section>
+      <div id="nouveau-materiel" class="hidden bg-white rounded-2xl border-2 border-terracotta/40 p-4 space-y-3">
+        <h3 class="font-semibold text-sm">Nouveau matériel</h3>
+        ${champ({ id: 'nm-nom', label: 'Nom', attrs: 'placeholder="ex. Cercle à tarte 24 cm"' })}
+        <div class="grid grid-cols-2 gap-3">${selection({ id: 'nm-categorie', label: 'Catégorie', options: Object.entries(CATEGORIES_MATERIEL) })}${champ({ id: 'nm-quantite', label: 'Nombre que vous avez', type: 'number', valeur: 1, attrs: 'min="0" step="1"' })}</div>
+        <div class="flex gap-2"><button type="button" id="nm-annuler" class="${BTN.secondaire}">Annuler</button><button type="button" id="nm-creer" class="${BTN.sombre} flex-1">Ajouter au matériel</button></div>
+      </div>
       <div id="nouvel-ingredient" class="hidden bg-white rounded-2xl border-2 border-terracotta/40 p-4 space-y-3">
         <h3 class="font-semibold text-sm">Nouvel ingrédient</h3>
         ${champ({ id: 'ni-nom', label: 'Nom', attrs: 'placeholder="ex. Pistaches"' })}
@@ -153,8 +186,29 @@ export function editerRecette(id, libre = false) {
     </form>`,
     pied: `<div class="flex gap-2">${existante ? `<button type="button" id="rec-supprimer" class="${BTN.danger}" aria-label="Supprimer la recette"><i class="fa-regular fa-trash-can"></i></button>` : ''}<button type="button" data-action="fermer-panneau" class="${BTN.secondaire}">Annuler</button><button type="submit" form="form-recette" class="${BTN.principal} flex-1">Enregistrer</button></div>`,
     onOuvert: (corps, pied) => {
-      let ligneEnAttente = null;
+      let ligneEnAttente = null, mLigneEnAttente = null;
       dessinerLignes();
+      dessinerMateriel();
+      $('#rec-materiel').addEventListener('change', e => {
+        const b = e.target.closest('[data-mligne]'); if (!b) return;
+        const i = +b.dataset.mligne;
+        if (e.target.dataset.mchamp === 'materielId') {
+          if (e.target.value === '__nouveau') { mLigneEnAttente = i; $('#nouveau-materiel').classList.remove('hidden'); $('#nm-nom').focus(); return; }
+          r.materiel[i].materielId = e.target.value;
+        }
+        if (e.target.dataset.mchamp === 'quantite') r.materiel[i].quantite = Math.max(1, parseInt(e.target.value, 10) || 1);
+        dessinerMateriel();
+      });
+      $('#rec-materiel').addEventListener('click', e => { const s = e.target.closest('[data-msuppr]'); if (!s) return; r.materiel.splice(+s.dataset.msuppr, 1); dessinerMateriel(); });
+      $('#rec-ajout-materiel').onclick = () => { r.materiel.push({ materielId: '', quantite: 1 }); dessinerMateriel(); };
+      $('#nm-annuler').onclick = () => { $('#nouveau-materiel').classList.add('hidden'); dessinerMateriel(); };
+      $('#nm-creer').onclick = async () => {
+        const nom = $('#nm-nom').value.trim(); if (!nom) { $('#nm-nom').focus(); return; }
+        const nid = await creer('materiel', { nom, categorie: $('#nm-categorie').value, quantite: Math.max(0, parseInt($('#nm-quantite').value, 10) || 0), notes: '' });
+        if (mLigneEnAttente !== null && r.materiel[mLigneEnAttente]) r.materiel[mLigneEnAttente].materielId = nid;
+        $('#nouveau-materiel').classList.add('hidden'); $('#nm-nom').value = '';
+        toast(`${nom} ajouté au matériel`); dessinerMateriel();
+      };
       $('#rec-rendement').oninput = majCout;
       $('#rec-lignes').addEventListener('change', e => {
         const b = e.target.closest('[data-ligne]'); if (!b) return;
@@ -193,7 +247,9 @@ export function editerRecette(id, libre = false) {
         if (libre && !$('#rec-titre').value.trim()) { $('#rec-titre').focus(); return; }
         const donnees = {
           rendement: Math.max(1, Number($('#rec-rendement').value) || 1), tempsMin: Number($('#rec-temps').value) || 0,
-          ingredients: r.ingredients.filter(l => l.ingredientId && l.quantite > 0), etapes: $('#rec-etapes').value.trim()
+          ingredients: r.ingredients.filter(l => l.ingredientId && l.quantite > 0),
+          materiel: r.materiel.filter(l => l.materielId).map(l => ({ materielId: l.materielId, quantite: Math.max(1, Number(l.quantite) || 1) })),
+          etapes: $('#rec-etapes').value.trim()
         };
         if (libre) donnees.titre = $('#rec-titre').value.trim();
         await enregistrer('recettes', id, donnees);

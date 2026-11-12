@@ -31,6 +31,15 @@ export const STATUTS = {
 export const ORDRE_STATUTS = ['nouvelle', 'confirmee', 'preparation', 'prete', 'retiree', 'annulee'];
 export const STATUTS_ACTIFS = ['confirmee', 'preparation', 'prete', 'retiree']; // comptent dans le chiffre d'affaires
 
+export const CATEGORIES_MATERIEL = {
+  moules: 'Moules et cercles',
+  ustensiles: 'Ustensiles',
+  appareils: 'Appareils',
+  decoration: 'Décoration',
+  emballage: 'Emballages',
+  autre: 'Autre'
+};
+
 export const UNITES = {
   g: { label: 'g', prixLabel: '€ / kg', diviseur: 1000 },
   ml: { label: 'ml', prixLabel: '€ / L', diviseur: 1000 },
@@ -84,13 +93,24 @@ export function donneesDemo() {
     mascarpone: { nom: 'Mascarpone', unite: 'g', quantite: 500, seuil: 500, prix: 9, fournisseur: 'Crèmerie' },
     fruits: { nom: 'Fruits rouges', unite: 'g', quantite: 800, seuil: 500, prix: 12, fournisseur: 'Primeur' }
   };
+  const materiel = {
+    cercle24: { nom: 'Cercle à tarte 24 cm', categorie: 'moules', quantite: 2, notes: '' },
+    moule24: { nom: 'Moule à manqué 24 cm', categorie: 'moules', quantite: 1, notes: '' },
+    cercleEntremets: { nom: 'Cercle à entremets 20 cm', categorie: 'moules', quantite: 1, notes: '' },
+    poche: { nom: 'Poche à douille + douille 12 mm', categorie: 'ustensiles', quantite: 3, notes: '' },
+    chalumeau: { nom: 'Chalumeau', categorie: 'ustensiles', quantite: 0, notes: 'En panne, à racheter' },
+    thermometre: { nom: 'Thermomètre à sucre', categorie: 'ustensiles', quantite: 1, notes: '' },
+    robot: { nom: 'Robot pâtissier', categorie: 'appareils', quantite: 1, notes: '' },
+    boite: { nom: 'Boîte à gâteau 26 cm', categorie: 'emballage', quantite: 4, notes: '' }
+  };
+  const M = (materielId, quantite = 1) => ({ materielId, quantite });
   const L = (ingredientId, quantite) => ({ ingredientId, quantite });
   const recettes = {
-    'tat-1': { rendement: 8, tempsMin: 90, ingredients: [L('pommes', 1500), L('beurre', 150), L('sucre', 200), L('farine', 250)], etapes: 'Faire un caramel à sec avec le sucre, ajouter le beurre.\nDisposer les pommes en quartiers serrés.\nCuire 45 min à 180 °C, couvrir de pâte feuilletée.\nCuire encore 30 min, refroidir avant de démouler.' },
-    'pbr-2': { rendement: 8, tempsMin: 120, ingredients: [L('farine', 150), L('beurre', 300), L('oeufs', 5), L('lait', 500), L('praline', 200), L('sucre', 100)], etapes: 'Pâte à choux : pocher une couronne, parsemer d\'amandes, cuire 40 min à 170 °C.\nCrème mousseline au praliné.\nGarnir la couronne refroidie.' },
-    'cit-4': { rendement: 8, tempsMin: 100, ingredients: [L('farine', 250), L('beurre', 225), L('sucre', 280), L('oeufs', 6), L('citrons', 4)], etapes: 'Pâte sablée, cuire à blanc.\nCrème citron, couler sur le fond.\nMeringue italienne, pocher et dorer au chalumeau.' },
-    'ent-5': { rendement: 8, tempsMin: 150, ingredients: [L('chocolat', 300), L('creme', 500), L('oeufs', 4), L('sucre', 120), L('amande', 120), L('praline', 120)], etapes: 'Biscuit dacquoise.\nCroustillant praliné.\nMousse chocolat, montage en cercle, congeler.\nGlaçage et décor.' },
-    'pav-8': { rendement: 8, tempsMin: 180, ingredients: [L('oeufs', 4), L('sucre', 240), L('mascarpone', 250), L('creme', 250), L('fruits', 400), L('vanille', 1)], etapes: 'Meringue suisse, cuire 2 h à 100 °C.\nChantilly mascarpone vanillée.\nDresser avec les fruits au dernier moment.' }
+    'tat-1': { rendement: 8, tempsMin: 90, ingredients: [L('pommes', 1500), L('beurre', 150), L('sucre', 200), L('farine', 250)], materiel: [M('moule24'), M('boite')], etapes: 'Faire un caramel à sec avec le sucre, ajouter le beurre.\nDisposer les pommes en quartiers serrés.\nCuire 45 min à 180 °C, couvrir de pâte feuilletée.\nCuire encore 30 min, refroidir avant de démouler.' },
+    'pbr-2': { rendement: 8, tempsMin: 120, ingredients: [L('farine', 150), L('beurre', 300), L('oeufs', 5), L('lait', 500), L('praline', 200), L('sucre', 100)], materiel: [M('poche'), M('robot'), M('boite')], etapes: 'Pâte à choux : pocher une couronne, parsemer d\'amandes, cuire 40 min à 170 °C.\nCrème mousseline au praliné.\nGarnir la couronne refroidie.' },
+    'cit-4': { rendement: 8, tempsMin: 100, ingredients: [L('farine', 250), L('beurre', 225), L('sucre', 280), L('oeufs', 6), L('citrons', 4)], materiel: [M('cercle24'), M('thermometre'), M('chalumeau'), M('poche'), M('boite')], etapes: 'Pâte sablée, cuire à blanc.\nCrème citron, couler sur le fond.\nMeringue italienne, pocher et dorer au chalumeau.' },
+    'ent-5': { rendement: 8, tempsMin: 150, ingredients: [L('chocolat', 300), L('creme', 500), L('oeufs', 4), L('sucre', 120), L('amande', 120), L('praline', 120)], materiel: [M('cercleEntremets'), M('robot'), M('boite')], etapes: 'Biscuit dacquoise.\nCroustillant praliné.\nMousse chocolat, montage en cercle, congeler.\nGlaçage et décor.' },
+    'pav-8': { rendement: 8, tempsMin: 180, ingredients: [L('oeufs', 4), L('sucre', 240), L('mascarpone', 250), L('creme', 250), L('fruits', 400), L('vanille', 1)], materiel: [M('robot'), M('poche'), M('boite')], etapes: 'Meringue suisse, cuire 2 h à 100 °C.\nChantilly mascarpone vanillée.\nDresser avec les fruits au dernier moment.' }
   };
   const produits = JSON.parse(JSON.stringify(CATALOGUE_SITE));
   const ligne = (id, taille, parts, qty) => {
@@ -114,5 +134,5 @@ export function donneesDemo() {
     d10: cmd('C-1022', 'Exemple · Tom G.', '06 32 14 25 36', -33, '10h00 - 11h30', 'retiree', [ligne('mil-6', '6 à 8 parts', 8, 1), ligne('mac-7', '', 12, 1)]),
     d11: cmd('C-1020', 'Exemple · Zoé K.', '06 74 85 96 12', -40, '16h30 - 18h30', 'annulee', [ligne('cit-4', '4 parts', 4, 1)])
   };
-  return { produits, ingredients, recettes, commandes, parametres: { infos: { ...PARAMETRES_DEFAUT } } };
+  return { produits, ingredients, materiel, recettes, commandes, parametres: { infos: { ...PARAMETRES_DEFAUT } } };
 }

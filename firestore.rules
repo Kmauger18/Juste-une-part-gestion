@@ -50,8 +50,11 @@ service cloud.firestore {
       allow read, update, delete: if estElodie();
     }
 
-    // Stock et recettes : réservés à Élodie
+    // Stock, matériel et recettes : réservés à Élodie
     match /ingredients/{id} {
+      allow read, write: if estElodie();
+    }
+    match /materiel/{id} {
       allow read, write: if estElodie();
     }
     match /recettes/{id} {
