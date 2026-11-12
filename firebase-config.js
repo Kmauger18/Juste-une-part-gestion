@@ -14,15 +14,15 @@
 // ============================================================
 
 export const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyD2OPOGWMFpg5D7kLY2Ueyzh6ZN4meARw0",
+  authDomain: "juste-une-part-merci.firebaseapp.com",
+  projectId: "juste-une-part-merci",
+  storageBucket: "juste-une-part-merci.firebasestorage.app",
+  messagingSenderId: "348762982440",
+  appId: "1:348762982440:web:bfa8612da9dad745368d1d"
 };
 
-export const ADMIN_EMAIL = "";
+export const ADMIN_EMAIL = "keliannmauger@gmail.com";
 
 export const firebaseActif = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 

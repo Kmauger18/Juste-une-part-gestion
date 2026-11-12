@@ -10,7 +10,7 @@ service cloud.firestore {
 
     function estElodie() {
       return request.auth != null
-        && request.auth.token.email == 'ADRESSE_ELODIE@exemple.fr';
+        && request.auth.token.email == 'keliannmauger@gmail.com';
     }
 
     // Commande envoyée depuis le site : seulement une nouvelle demande, bien formée
