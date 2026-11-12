@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Gestion | Juste une part, merci !</title>
+  <title>Gestion · Juste une part, merci !</title>
+  <meta name="apple-mobile-web-app-title" content="Gestion pâtisserie">
+  <meta name="application-name" content="Gestion pâtisserie">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#341A0B">
-  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="img/favicon-32.png" sizes="32x32" type="image/png">
-  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="icon" href="img/logo-gestion.svg" type="image/svg+xml">
+  <link rel="icon" href="img/gestion-favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="img/gestion-apple-touch-icon.png">
   <link rel="manifest" href="site.webmanifest">
   <link rel="preload" href="fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
@@ -21,7 +23,7 @@
   <!-- Chargement -->
   <div id="ecran-chargement" class="fixed inset-0 grid place-items-center bg-brand-50 z-50">
     <div class="text-center">
-      <img src="img/logo-icone.svg" alt="" width="64" height="64" class="w-16 h-16 mx-auto rounded-2xl shadow animate-pulse">
+      <img src="img/logo-gestion.svg" alt="" width="64" height="64" class="w-16 h-16 mx-auto rounded-2xl shadow animate-pulse">
       <p class="mt-4 text-sm text-brand-600">Chargement…</p>
     </div>
   </div>
@@ -30,7 +32,7 @@
   <div id="ecran-connexion" class="hidden min-h-screen grid place-items-center px-4 py-10 bg-gradient-to-br from-brand-50 via-brand-100 to-brand-200">
     <div class="w-full max-w-sm">
       <div class="text-center mb-8">
-        <img src="img/logo-icone.svg" alt="" width="72" height="72" class="w-[72px] h-[72px] mx-auto rounded-2xl shadow-md">
+        <img src="img/logo-gestion.svg" alt="" width="72" height="72" class="w-[72px] h-[72px] mx-auto rounded-2xl shadow-md">
         <h1 class="font-display text-3xl text-brand-950 mt-4">Juste une part, <span class="text-terracotta">merci !</span></h1>
         <p class="text-sm text-brand-600 mt-1">Espace de gestion</p>
       </div>
@@ -61,7 +63,7 @@
     <!-- Menu latéral (ordinateur) -->
     <aside class="hidden lg:flex lg:flex-col w-64 flex-none bg-brand-950 text-brand-200 sticky top-0 h-screen">
       <a href="#tableau" class="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-        <img src="img/logo-icone.svg" alt="" width="40" height="40" class="w-10 h-10 rounded-xl">
+        <img src="img/logo-gestion.svg" alt="" width="40" height="40" class="w-10 h-10 rounded-xl">
         <span class="leading-tight"><span class="block font-display text-white text-lg">Juste une part</span><span class="text-xs text-brand-400">Espace de gestion</span></span>
       </a>
       <nav id="nav-laterale" class="flex-1 px-3 py-4 space-y-1" aria-label="Menu"></nav>
@@ -78,7 +80,7 @@
       <!-- En-tête (téléphone) -->
       <header class="lg:hidden sticky top-0 z-30 bg-brand-950 text-white" style="padding-top: env(safe-area-inset-top, 0px)">
         <div class="flex items-center gap-3 px-4 h-14">
-          <img src="img/logo-icone.svg" alt="" width="32" height="32" class="w-8 h-8 rounded-lg">
+          <img src="img/logo-gestion.svg" alt="" width="32" height="32" class="w-8 h-8 rounded-lg">
           <span id="titre-mobile" class="font-display text-lg flex-1 truncate">Tableau de bord</span>
           <a href="#parametres" class="w-10 h-10 grid place-items-center rounded-xl hover:bg-white/10" aria-label="Paramètres"><i class="fa-solid fa-gear"></i></a>
         </div>

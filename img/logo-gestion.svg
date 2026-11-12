@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Gestion · Juste une part, merci !">
+  <!-- Fond sombre : différencie l'espace de gestion du site -->
+  <rect width="64" height="64" rx="16" fill="#341A0B"/>
+  <!-- Part de gâteau (couleurs claires sur fond sombre) -->
+  <g transform="translate(-2 2) scale(.9)" stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="7,33 57,25 57,29 7,37" fill="#FFF1DE"/>
+    <polygon points="7,37 57,29 57,35 7,43" fill="#E8B46C"/>
+    <polygon points="7,43 57,35 57,38.5 7,46.5" fill="#E27D5F"/>
+    <polygon points="7,46.5 57,38.5 57,44 7,52" fill="#E8B46C"/>
+    <polygon points="7,52 57,44 57,47 7,55" fill="#C49D79"/>
+    <polygon points="7,33 40,15 57,25" fill="#FFF7EC"/>
+    <path d="M7 33 L40 15 L57 25 L57 47 L7 55 Z M7 33 L57 25" fill="none" stroke="#FAF6F0" stroke-width="2.2"/>
+    <path d="M33 20.5c0-3.2 3-4.6 5.4-3.6 1.6-2.4 6-1.9 6.4 1.2 2.6.6 2.6 4.4-.3 4.9-3.3.6-8.6.4-11.5-2.5z" fill="#FFFFFF" stroke="#FAF6F0" stroke-width="1.8"/>
+    <circle cx="40.5" cy="13.5" r="5" fill="#E27D5F" stroke="#FAF6F0" stroke-width="1.8"/>
+    <path d="M41.5 8.8c.6-2.8 2.6-4.6 5.2-5.2" fill="none" stroke="#FAF6F0" stroke-width="1.8"/>
+  </g>
+  <!-- Badge engrenage -->
+  <g transform="translate(47 47)">
+    <circle r="14" fill="#D4AF37" stroke="#341A0B" stroke-width="2.5"/>
+    <g fill="#341A0B">
+      <rect x="-2.2" y="-10.5" width="4.4" height="5" rx="1"/>
+      <rect x="-2.2" y="-10.5" width="4.4" height="5" rx="1" transform="rotate(45)"/>
+      <rect x="-2.2" y="-10.5" width="4.4" height="5" rx="1" transform="rotate(90)"/>
+      <rect x="-2.2" y="-10.5" width="4.4" height="5" rx="1" transform="rotate(135)"/>
+      <rect x="-2.2" y="-10.5" width="4.4" height="5" rx="1" transform="rotate(180)"/>
+      <rect x="-2.2" y="-10.5" width="4.4" height="5" rx="1" transform="rotate(225)"/>
+      <rect x="-2.2" y="-10.5" width="4.4" height="5" rx="1" transform="rotate(270)"/>
+      <rect x="-2.2" y="-10.5" width="4.4" height="5" rx="1" transform="rotate(315)"/>
+      <circle r="7"/>
+    </g>
+    <circle r="2.8" fill="#D4AF37"/>
+  </g>
+</svg>
