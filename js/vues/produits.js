@@ -1,6 +1,6 @@
 // Produits : le catalogue affiché sur le site
 import { liste, obtenir, creer, enregistrer, modifier, supprimer, importerCatalogueSite, mode, db, messageErreur } from '../store.js';
-import { CATEGORIES, ALLERGENES, TAILLES } from '../donnees.js';
+import { CATEGORIES, ALLERGENES, TAILLES, categorieActuelle } from '../donnees.js';
 import { $, $$, esc, euro, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, interrupteur, etatVide, compresserImage, BTN } from '../ui.js';
 import { margeProduit } from '../calculs.js';
 
@@ -20,8 +20,8 @@ function badgeMarge(id) {
 export default {
   render(el, { param, changementDeRoute }) {
     const tous = liste('produits').sort((a, b) => (a.ordre || 99) - (b.ordre || 99) || a.titre.localeCompare(b.titre));
-    const produits = categorie === 'toutes' ? tous : tous.filter(p => p.categorie === categorie);
-    const cats = [...new Set(tous.map(p => p.categorie))];
+    const produits = categorie === 'toutes' ? tous : categorie === 'moment' ? tous.filter(p => p.vedette) : tous.filter(p => categorieActuelle(p.categorie) === categorie);
+    const cats = Object.keys(CATEGORIES).filter(c => tous.some(p => categorieActuelle(p.categorie) === c));
 
     el.innerHTML = `
       <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
@@ -29,10 +29,10 @@ export default {
         <button type="button" data-p="nouveau" class="${BTN.principal} w-full sm:w-auto"><i class="fa-solid fa-plus"></i> Nouveau gâteau</button>
       </div>
       ${mode === 'demo' ? `<div class="mb-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 text-sm flex gap-3"><i class="fa-solid fa-triangle-exclamation mt-0.5"></i><span><strong>Mode démo :</strong> les modifications restent sur cet appareil et <strong>n'apparaissent pas sur le site</strong>. Elles s'afficheront sur le site une fois Firebase configuré (voir GUIDE-FIREBASE.md).</span></div>` : ''}
-      <p class="text-sm text-brand-600 mb-5">Ce qui est visible ici apparaît sur le site, dans cet ordre. <i class="fa-solid fa-star text-gold"></i> = mis en avant sur la page d'accueil.</p>
+      <p class="text-sm text-brand-600 mb-5">Ce qui est visible ici apparaît sur le site, dans cet ordre. <i class="fa-solid fa-star text-gold"></i> = dans la famille « En ce moment » de la page d'accueil.</p>
       ${tous.length ? `
       <div class="flex gap-2 overflow-x-auto pb-1 mb-5 -mx-4 px-4 sm:mx-0 sm:px-0">
-        ${[['toutes', 'Tous'], ...cats.map(c => [c, CATEGORIES[c] || c])].map(([k, l]) => `<button type="button" data-cat="${k}" class="flex-none px-3.5 py-2 rounded-full text-sm font-semibold ${k === categorie ? 'bg-brand-900 text-white' : 'bg-white border border-brand-200 text-brand-700'}">${esc(l)}</button>`).join('')}
+        ${[['toutes', 'Tous'], ['moment', 'En ce moment'], ...cats.map(c => [c, CATEGORIES[c]])].map(([k, l]) => `<button type="button" data-cat="${k}" class="flex-none px-3.5 py-2 rounded-full text-sm font-semibold ${k === categorie ? 'bg-brand-900 text-white' : 'bg-white border border-brand-200 text-brand-700'}">${esc(l)}</button>`).join('')}
       </div>
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         ${produits.map(p => `
@@ -45,9 +45,9 @@ export default {
           <div class="p-4 flex-1 flex flex-col gap-2">
             <div class="flex items-start justify-between gap-2">
               <button type="button" data-editer="${p.id}" class="text-left font-semibold leading-snug hover:text-terracotta">${esc(p.titre)}</button>
-              <button type="button" data-vedette="${p.id}" class="${BTN.icone} -mt-1 -mr-1 flex-none" aria-label="${p.vedette ? 'Retirer de' : 'Mettre sur'} la page d'accueil" title="${p.vedette ? 'Mis en avant sur l\'accueil' : 'Mettre en avant sur l\'accueil'}"><i class="${p.vedette ? 'fa-solid text-gold' : 'fa-regular'} fa-star"></i></button>
+              <button type="button" data-vedette="${p.id}" class="${BTN.icone} -mt-1 -mr-1 flex-none" aria-label="${p.vedette ? 'Retirer de' : 'Ajouter à'} « En ce moment »" title="${p.vedette ? 'Dans « En ce moment »' : 'Ajouter à « En ce moment »'}"><i class="${p.vedette ? 'fa-solid text-gold' : 'fa-regular'} fa-star"></i></button>
             </div>
-            <div class="text-xs text-brand-500">${esc(CATEGORIES[p.categorie] || p.categorie || '')}</div>
+            <div class="text-xs text-brand-500">${esc(CATEGORIES[categorieActuelle(p.categorie)])}</div>
             <div class="mt-auto pt-2 flex items-center justify-between gap-2">
               <span class="font-display text-xl tabular-nums">${p.tailles ? '<span class="text-xs font-sans text-brand-500">dès </span>' + euro(p.prix * TAILLES[0].mult) : euro(p.prix)}</span>
               ${badgeMarge(p.id)}
@@ -65,12 +65,12 @@ export default {
       const c = t.closest('[data-cat]'); if (c) { categorie = c.dataset.cat; this.render(el, {}); return; }
       const ed = t.closest('[data-editer]'); if (ed) { formulaireProduit(obtenir('produits', ed.dataset.editer)); return; }
       const v = t.closest('[data-vedette]');
-      if (v) { const p = obtenir('produits', v.dataset.vedette); await modifier('produits', p.id, { vedette: !p.vedette }); toast(p.vedette ? 'Retiré de la page d\'accueil' : 'Mis en avant sur la page d\'accueil'); return; }
+      if (v) { const p = obtenir('produits', v.dataset.vedette); await modifier('produits', p.id, { vedette: !p.vedette }); toast(p.vedette ? 'Retiré de « En ce moment »' : 'Ajouté à « En ce moment »'); return; }
       const a = t.closest('[data-p]');
       if (a?.dataset.p === 'nouveau') formulaireProduit(null);
       if (a?.dataset.p === 'importer') {
         a.disabled = true; a.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Import en cours…';
-        try { const r = await importerCatalogueSite(); toast(r === 'attente' ? 'Catalogue enregistré sur l\'appareil, synchronisation en cours…' : 'Catalogue importé : 8 gâteaux'); }
+        try { const r = await importerCatalogueSite(); toast(r === 'attente' ? 'Catalogue enregistré sur l\'appareil, synchronisation en cours…' : 'Catalogue d\'origine importé'); }
         catch (err) { toast(messageErreur(err), 'erreur'); a.disabled = false; a.innerHTML = '<i class="fa-solid fa-file-import"></i> Importer le catalogue du site'; }
       }
     };
@@ -109,7 +109,7 @@ export function formulaireProduit(p) {
       ${champ({ id: 'pr-titre', label: 'Nom du gâteau', valeur: p.titre, attrs: 'required' })}
       ${champ({ id: 'pr-accroche', label: 'Phrase d\'accroche', valeur: p.accroche, attrs: 'placeholder="ex. La tarte renversée, comme à la maison"' })}
       <div class="grid grid-cols-2 gap-3">
-        ${selection({ id: 'pr-categorie', label: 'Catégorie', options: Object.entries(CATEGORIES), valeur: p.categorie })}
+        ${selection({ id: 'pr-categorie', label: 'Catégorie', options: Object.entries(CATEGORIES), valeur: categorieActuelle(p.categorie) })}
         ${champ({ id: 'pr-badge', label: 'Étiquette', valeur: p.badge, attrs: 'placeholder="ex. Nouveauté"' })}
       </div>
       ${champ({ id: 'pr-description', label: 'Description', type: 'textarea', valeur: p.description })}
@@ -143,7 +143,7 @@ export function formulaireProduit(p) {
 
     <section class="space-y-1 bg-white rounded-2xl border border-brand-200 px-4 py-2">
       ${interrupteur({ id: 'pr-visible', label: 'Visible sur le site', coche: p.visible !== false })}
-      ${interrupteur({ id: 'pr-vedette', label: 'Mis en avant sur la page d\'accueil', coche: !!p.vedette })}
+      ${interrupteur({ id: 'pr-vedette', label: 'En ce moment', coche: !!p.vedette, aide: 'Apparaît aussi dans la famille « En ce moment » de la page d\'accueil.' })}
       <div class="py-2">${champ({ id: 'pr-ordre', label: 'Position dans la carte', type: 'number', valeur: p.ordre || 1, attrs: 'min="1" step="1"', aide: '1 = en premier.' })}</div>
     </section>
     <p id="pr-erreur" class="hidden text-sm text-red-700 bg-red-50 rounded-xl px-3 py-2"></p>

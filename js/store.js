@@ -51,7 +51,7 @@ function nettoyer(obj) { return JSON.parse(JSON.stringify(obj)); } // retire les
 // =====================================================================
 //  MODE DÉMO
 // =====================================================================
-const CLE_DEMO = 'jup-gestion-demo-v1';
+const CLE_DEMO = 'jup-gestion-demo-v2';
 const demo = {
   charger() {
     let d = null;

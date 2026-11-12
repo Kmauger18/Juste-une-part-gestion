@@ -31,7 +31,7 @@ export default {
         <div class="space-y-5">
           <section class="bg-white rounded-2xl border border-brand-200 p-5 space-y-3">
             <h2 class="font-semibold text-lg">Catalogue</h2>
-            <p class="text-sm text-brand-600">${nbProduits} gâteau${nbProduits > 1 ? 'x' : ''} dans le catalogue. L'import ajoute ou remet à jour les 8 gâteaux d'origine du site, sans toucher aux autres.</p>
+            <p class="text-sm text-brand-600">${nbProduits} gâteau${nbProduits > 1 ? 'x' : ''} dans le catalogue. L'import ajoute ou remet à jour les gâteaux d'origine du site (tartes, entremets, gâteaux, grands classiques), sans toucher aux autres.</p>
             <button type="button" data-pa="importer" class="${BTN.secondaire} w-full"><i class="fa-solid fa-file-import"></i> Importer le catalogue d'origine du site</button>
           </section>
 
@@ -74,9 +74,9 @@ export default {
     el.onclick = async e => {
       const a = e.target.closest('[data-pa]'); if (!a) return;
       if (a.dataset.pa === 'exporter') { telecharger(exporterTout(), `sauvegarde-juste-une-part-${isoJour()}.json`); toast('Sauvegarde téléchargée'); }
-      if (a.dataset.pa === 'importer' && await confirmer('Importer les 8 gâteaux d\'origine du site ? Ceux qui existent déjà avec le même nom d\'origine seront remis à leur version initiale.', { bouton: 'Importer' })) {
+      if (a.dataset.pa === 'importer' && await confirmer('Importer les gâteaux d\'origine du site ? Ceux qui existent déjà avec le même identifiant seront remis à leur version initiale.', { bouton: 'Importer' })) {
         const texte = a.innerHTML; a.disabled = true; a.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Import en cours…';
-        try { const r = await importerCatalogueSite(); toast(r === 'attente' ? 'Catalogue enregistré sur l\'appareil, synchronisation en cours…' : 'Catalogue importé : 8 gâteaux'); }
+        try { const r = await importerCatalogueSite(); toast(r === 'attente' ? 'Catalogue enregistré sur l\'appareil, synchronisation en cours…' : 'Catalogue d\'origine importé'); }
         catch (err) { toast(messageErreur(err), 'erreur'); }
         finally { a.disabled = false; a.innerHTML = texte; }
       }
