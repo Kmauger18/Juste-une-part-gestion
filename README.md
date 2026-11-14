@@ -13,7 +13,7 @@ En ligne (une fois GitHub Pages activé) : https://kmauger18.github.io/Juste-une
 | **Tableau de bord** | Chiffre d'affaires du mois, demandes à confirmer, retraits des 7 prochains jours, ingrédients à acheter, stock bas, meilleures ventes |
 | **Commandes** | Commandes du site et saisies à la main, classées par date de retrait. Statuts : nouvelle → confirmée → en préparation → prête → retirée. Appel et SMS de confirmation pré-rédigé, acompte, paiement, notes |
 | **Produits** | Le catalogue du site : photo (prise au téléphone), prix, tailles, allergènes, visible ou masqué, mis en avant sur l'accueil, ordre |
-| **Recettes** | Fiche cuisine recalculée pour n'importe quel nombre de parts, coût de revient, marge, matériel nécessaire avec vérification |
+| **Recettes** | Page recette en grand (photos entre les étapes, mode pas à pas), recalculée pour n'importe quel nombre de parts, coût de revient, marge, matériel nécessaire. **Import depuis un lien** (Marmiton, 750g, blogs…) ou un texte collé, et « Partager » un lien vers l'application Android |
 | **Stock** | Ingrédients (alertes de seuil, réceptions, inventaire, liste de courses) et matériel (moules, ustensiles, appareils, emballages) |
 | **Paramètres** | Téléphone, e-mail, adresse, horaires et créneaux affichés sur le site, ouverture ou fermeture des commandes, sauvegarde |
 
