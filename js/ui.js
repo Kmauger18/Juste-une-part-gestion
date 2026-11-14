@@ -172,3 +172,36 @@ export const BTN = {
   danger: 'inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-700 hover:bg-red-50 font-semibold text-sm transition-colors',
   icone: 'inline-grid place-items-center w-9 h-9 rounded-xl text-brand-700 hover:bg-brand-100 hover:text-brand-950 transition-colors'
 };
+
+// ---------- Redessiner un écran sans fermer le clavier ----------
+// Pendant une recherche, l'écran est redessiné à chaque lettre. Remplacer la
+// barre de recherche lui ferait perdre le focus et fermerait le clavier du
+// téléphone : on garde donc l'élément de recherche en place et on remplace
+// tout le reste autour de lui.
+export function remplirVue(el, html) {
+  const ancien = el.querySelector('input[type=search][id]');
+  if (!ancien || document.activeElement !== ancien) { el.innerHTML = html; return; }
+  const t = document.createElement('div');
+  t.innerHTML = html;
+  const nouveau = t.querySelector('#' + CSS.escape(ancien.id));
+  const cheminA = [], cheminN = [];
+  for (let n = ancien; n && n !== el; n = n.parentNode) cheminA.push(n);
+  for (let n = nouveau; n && n !== t; n = n.parentNode) cheminN.push(n);
+  const compatible = nouveau && cheminA.length === cheminN.length && cheminA.every((a, i) => a.tagName === cheminN[i].tagName);
+  if (!compatible) { el.innerHTML = html; return; }
+  let parentA = el, parentN = t;
+  for (let i = cheminN.length - 1; i >= 0; i--) {
+    const a = cheminA[i], n = cheminN[i];
+    [...parentA.childNodes].forEach(c => { if (c !== a) c.remove(); });
+    const enfants = [...parentN.childNodes], k = enfants.indexOf(n);
+    enfants.slice(0, k).forEach(c => parentA.insertBefore(c, a));
+    enfants.slice(k + 1).forEach(c => parentA.appendChild(c));
+    if (i > 0) { // reprendre les attributs des conteneurs (classes…)
+      [...a.attributes].forEach(x => a.removeAttribute(x.name));
+      [...n.attributes].forEach(x => a.setAttribute(x.name, x.value));
+    }
+    parentA = a; parentN = n;
+  }
+}
+// Utilisation : vue(el).innerHTML = `…` (même écriture qu'avant)
+export function vue(el) { return { set innerHTML(html) { remplirVue(el, html); } }; }

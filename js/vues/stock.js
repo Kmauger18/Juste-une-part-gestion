@@ -1,7 +1,7 @@
 // Stock : ingrédients et matériel
 import { liste, obtenir, creer, enregistrer, modifier, supprimer, supprimerPhoto, db } from '../store.js';
 import { UNITES } from '../donnees.js';
-import { $, esc, euro, isoJour, ajouterJours, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, etatVide, BTN } from '../ui.js';
+import { $, esc, euro, isoJour, ajouterJours, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, etatVide, BTN, vue } from '../ui.js';
 import { formaterQuantite, coutIngredient, besoinsCommandes } from '../calculs.js';
 import { renderMateriel } from './materiel.js';
 import * as brouillon from '../brouillon.js';
@@ -37,7 +37,7 @@ export default {
     let visibles = filtre === 'racheter' ? aRacheter : tous;
     if (recherche) visibles = visibles.filter(i => (i.nom + ' ' + (i.fournisseur || '')).toLowerCase().includes(recherche.toLowerCase()));
 
-    el.innerHTML = `
+    vue(el).innerHTML = `
       ${barreOnglets()}
       <div class="flex flex-wrap items-center justify-end gap-3 mb-5">
         <div class="flex gap-2 w-full sm:w-auto">

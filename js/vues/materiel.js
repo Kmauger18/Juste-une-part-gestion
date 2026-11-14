@@ -1,7 +1,7 @@
 // Matériel : moules, ustensiles, appareils, emballages
 import { liste, obtenir, creer, enregistrer, modifier, supprimer, supprimerPhoto, db } from '../store.js';
 import { CATEGORIES_MATERIEL } from '../donnees.js';
-import { $, esc, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN } from '../ui.js';
+import { $, esc, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN, vue } from '../ui.js';
 import { recettesUtilisantMateriel } from '../calculs.js';
 import * as brouillon from '../brouillon.js';
 import { editeurPhotos, vignette } from '../photos.js';
@@ -15,7 +15,7 @@ export function renderMateriel(el, onglets, rerender) {
   visibles.forEach(m => { (groupes[m.categorie || 'autre'] = groupes[m.categorie || 'autre'] || []).push(m); });
   const manquants = tous.filter(m => (Number(m.quantite) || 0) <= 0).length;
 
-  el.innerHTML = `
+  vue(el).innerHTML = `
     ${onglets}
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <p class="text-sm text-brand-600 flex-1 min-w-[200px]">Indiquez le matériel utilisé par chaque recette : la fiche cuisine et les commandes vérifient alors que tout est disponible.</p>
