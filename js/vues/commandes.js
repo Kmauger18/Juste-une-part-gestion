@@ -1,7 +1,7 @@
 // Commandes : liste par date de retrait, détail, création et modification
 import { liste, obtenir, parametres, creer, enregistrer, modifier, supprimer, lot, db } from '../store.js';
 import { STATUTS, ORDRE_STATUTS, TAILLES } from '../donnees.js';
-import { $, $$, esc, euro, isoJour, dateRelative, dateLongue, ecartJours, badgeStatut, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, interrupteur, etatVide, BTN } from '../ui.js';
+import { $, $$, esc, euro, isoJour, dateRelative, dateLongue, ecartJours, badgeStatut, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, interrupteur, etatVide, BTN, vue } from '../ui.js';
 import * as brouillon from '../brouillon.js';
 import { besoinsCommandes, besoinsMateriel, operationsDeduction, totalCommande, formaterQuantite, prochainNumero } from '../calculs.js';
 
@@ -73,7 +73,7 @@ export default {
 
     const compte = f => toutes.filter(c => FILTRES[f].statuts.includes(c.statut)).length;
 
-    el.innerHTML = `
+    vue(el).innerHTML = `
       <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h1 class="hidden lg:block font-display text-3xl">Commandes</h1>
         <button type="button" data-action-c="nouvelle" class="${BTN.principal} w-full sm:w-auto"><i class="fa-solid fa-plus"></i> Nouvelle commande</button>

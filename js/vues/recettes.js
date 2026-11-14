@@ -1,7 +1,7 @@
 // Recettes : fiches cuisine, coût de revient et marge
 import { liste, obtenir, enregistrer, supprimer, creer, db } from '../store.js';
 import { UNITES, CATEGORIES_MATERIEL } from '../donnees.js';
-import { $, $$, esc, euro, nombre, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN } from '../ui.js';
+import { $, $$, esc, euro, nombre, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN, vue } from '../ui.js';
 import { coutRecette, coutIngredient, margeProduit, formaterQuantite } from '../calculs.js';
 import * as brouillon from '../brouillon.js';
 import { vignette } from '../photos.js';
@@ -20,7 +20,7 @@ export default {
     ].filter(x => !recherche || x.titre.toLowerCase().includes(recherche.toLowerCase()));
     const avec = elements.filter(x => x.recette && (x.recette.ingredients || []).length).length;
 
-    el.innerHTML = `
+    vue(el).innerHTML = `
       <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
         <h1 class="hidden lg:block font-display text-3xl">Recettes</h1>
         <button type="button" data-r="libre" class="${BTN.secondaire} w-full sm:w-auto"><i class="fa-solid fa-plus"></i> Recette de base (pâte, crème…)</button>
