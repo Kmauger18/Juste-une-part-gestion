@@ -199,6 +199,7 @@ async function demarrer() {
   surPanneauQuitte(() => { if (!brouillon.estActif('parametres')) brouillon.abandonner(); });
   window.addEventListener('hashchange', () => {
     if (brouillon.estActif('parametres') && routeDepuisAdresse().nom !== 'parametres') brouillon.terminer();
+    if (brouillon.estActif('recette') && !/^#recettes\/[^/]+\/modifier$/.test(location.hash)) brouillon.terminer();
     fermerPanneau(); if (!$('#app').classList.contains('hidden')) afficher(true); });
   store.surChangement(() => { if (!$('#app').classList.contains('hidden')) afficher(false); });
 
