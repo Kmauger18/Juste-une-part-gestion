@@ -82,7 +82,9 @@ document.addEventListener('click', e => {
 // Retourne { enregistrer(), etat() } : enregistrer() à l'enregistrement du
 // formulaire ; etat() sert au brouillon (saisie gardée si l'appli est quittée).
 // initial : état repris d'un brouillon { elements: [{id}|{data}], retires }.
-export function editeurPhotos(conteneur, idsExistants = [], initial = null) {
+export function editeurPhotos(conteneur, idsExistants = [], initial = null, options = {}) {
+  const max = options.max || MAX_PHOTOS;
+  const aide = options.aide ?? 'La première sert de vignette dans les listes. Prenez la photo de près, avec l\'étiquette ou la marque si possible.';
   const elements = initial?.elements
     ? initial.elements.map(p => ({ id: p.id || null, data: p.id ? null : (p.data || '') })).filter(p => p.id || p.data)
     : idsExistants.map(id => ({ id, data: null }));
@@ -97,14 +99,14 @@ export function editeurPhotos(conteneur, idsExistants = [], initial = null) {
           <button type="button" data-retirer-photo="${i}" class="absolute top-1 right-1 w-7 h-7 rounded-full bg-white/90 text-red-700 grid place-items-center shadow" aria-label="Retirer la photo ${i + 1}"><i class="fa-solid fa-xmark text-sm"></i></button>
           ${i > 0 ? `<button type="button" data-principale="${i}" class="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-white/90 text-brand-800 grid place-items-center shadow" aria-label="Mettre en photo principale" title="Mettre en principale"><i class="fa-regular fa-star text-xs"></i></button>` : ''}
         </div>`).join('')}
-        ${elements.length < MAX_PHOTOS ? `<label class="aspect-square rounded-xl border-2 border-dashed border-brand-300 bg-white hover:border-terracotta text-brand-600 hover:text-terracotta grid place-items-center text-center cursor-pointer text-xs font-semibold p-2">
+        ${elements.length < max ? `<label class="aspect-square rounded-xl border-2 border-dashed border-brand-300 bg-white hover:border-terracotta text-brand-600 hover:text-terracotta grid place-items-center text-center cursor-pointer text-xs font-semibold p-2">
           <span class="flex flex-col items-center gap-1"><i class="fa-solid fa-camera text-xl"></i>Prendre une photo</span>
           <input type="file" accept="image/*" capture="environment" class="sr-only" data-ajout-photos></label>
         <label class="aspect-square rounded-xl border-2 border-dashed border-brand-300 bg-white hover:border-terracotta text-brand-600 hover:text-terracotta grid place-items-center text-center cursor-pointer text-xs font-semibold p-2">
           <span class="flex flex-col items-center gap-1"><i class="fa-regular fa-images text-xl"></i>Galerie</span>
           <input type="file" accept="image/*" multiple class="sr-only" data-ajout-photos></label>` : ''}
       </div>
-      <p class="text-xs text-brand-500 mt-2">${elements.length}/${MAX_PHOTOS} photo${elements.length > 1 ? 's' : ''}. La première sert de vignette dans les listes. Prenez la photo de près, avec l'étiquette ou la marque si possible.</p>`;
+      <p class="text-xs text-brand-500 mt-2">${elements.length}/${max} photo${elements.length > 1 ? 's' : ''}. ${aide}</p>`;
   };
 
   // Charger les photos existantes
@@ -113,12 +115,12 @@ export function editeurPhotos(conteneur, idsExistants = [], initial = null) {
 
   conteneur.addEventListener('change', async e => {
     if (!e.target.matches('[data-ajout-photos]')) return;
-    const fichiers = [...e.target.files].slice(0, MAX_PHOTOS - elements.length);
+    const fichiers = [...e.target.files].slice(0, max - elements.length);
     for (const f of fichiers) {
       try { elements.push({ id: null, data: await compresserImage(f, 900, 0.7) }); dessiner(); }
       catch (err) { toast(err.message, 'erreur'); }
     }
-    if (e.target.files.length > fichiers.length) toast(`${MAX_PHOTOS} photos au maximum`, 'erreur');
+    if (e.target.files.length > fichiers.length) toast(`${max} photos au maximum`, 'erreur');
     e.target.value = '';
     brouillon.planifier();
   });
