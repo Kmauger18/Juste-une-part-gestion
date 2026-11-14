@@ -1,10 +1,10 @@
 // Recettes : fiches cuisine, coût de revient et marge
-import { liste, obtenir, enregistrer, supprimer, creer, db } from '../store.js';
+import { liste, obtenir, enregistrer, supprimer, creer, db, lirePhoto, supprimerPhoto } from '../store.js';
 import { UNITES, CATEGORIES_MATERIEL } from '../donnees.js';
 import { $, $$, esc, euro, nombre, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN, vue } from '../ui.js';
 import { coutRecette, coutIngredient, margeProduit, formaterQuantite } from '../calculs.js';
 import * as brouillon from '../brouillon.js';
-import { vignette } from '../photos.js';
+import { vignette, voirPhotos, editeurPhotos } from '../photos.js';
 
 let recherche = '';
 
@@ -15,8 +15,8 @@ export default {
     const produits = liste('produits').sort((a, b) => (a.ordre || 99) - (b.ordre || 99));
     const libres = liste('recettes').filter(r => !db.produits[r.id]);
     const elements = [
-      ...produits.map(p => ({ id: p.id, titre: p.titre, image: p.image, recette: db.recettes[p.id] || null, produit: true })),
-      ...libres.map(r => ({ id: r.id, titre: r.titre || 'Recette', image: '', recette: r, produit: false }))
+      ...produits.map(p => ({ id: p.id, titre: p.titre, image: db.recettes[p.id]?.miniature || p.image, recette: db.recettes[p.id] || null, produit: true })),
+      ...libres.map(r => ({ id: r.id, titre: r.titre || 'Recette', image: r.miniature || '', recette: r, produit: false }))
     ].filter(x => !recherche || x.titre.toLowerCase().includes(recherche.toLowerCase()));
     const avec = elements.filter(x => x.recette && (x.recette.ingredients || []).length).length;
 
@@ -51,67 +51,238 @@ export default {
   }
 };
 
-// Fiche cuisine (lecture), avec calcul pour un autre nombre de parts
+// ---------- Lecture des étapes ----------
+// Une ligne par étape ; une ligne qui finit par « : » devient un titre de partie.
+function analyserEtapes(texte) {
+  let n = 0;
+  return String(texte || '').split('\n').map(s => s.trim()).filter(Boolean).map(s => {
+    const t = s.replace(/^\s*(\d+[\.\)]|[-•*])\s*/, '');
+    if (/:\s*$/.test(t) && t.length <= 60) return { titre: t.replace(/\s*:\s*$/, '') };
+    return { n: ++n, texte: t };
+  });
+}
+const sansAccents = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// Ingrédients cités dans une étape (nom complet, ou premier mot s'il est sans ambiguïté)
+function ingredientsCites(texte, lignes) {
+  const t = ' ' + sansAccents(texte).replace(/[^a-z0-9]+/g, ' ') + ' ';
+  const premiers = lignes.map(l => sansAccents(db.ingredients[l.ingredientId]?.nom).split(/[^a-z0-9]+/).find(m => m.length >= 4) || '');
+  return lignes.filter((l, i) => {
+    const nom = sansAccents(db.ingredients[l.ingredientId]?.nom).replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!nom) return false;
+    if (t.includes(' ' + nom + ' ')) return true;
+    const p = premiers[i];
+    if (!p || premiers.filter(x => x === p).length > 1) return false;
+    return new RegExp(' ' + p + 's? ').test(t) || t.includes(' ' + p.replace(/s$/, '') + ' ');
+  });
+}
+
+function dureeTexte(min) {
+  min = Number(min) || 0; if (!min) return '';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? `${h} h${m ? ' ' + String(m).padStart(2, '0') : ''}` : `${m} min`;
+}
+
+// Fiche cuisine (lecture), grande et lisible, avec calcul pour un autre nombre de parts
 export function ouvrirRecette(id) {
   const r = db.recettes[id];
   if (!r || !(r.ingredients || []).length) { editerRecette(id, !db.produits[id]); return; }
-  let parts = Number(r.rendement) || 1;
-  const dessinerQuantites = () => {
-    const f = parts / (Number(r.rendement) || 1);
-    $('#fiche-ingredients').innerHTML = r.ingredients.map(l => {
-      const ing = db.ingredients[l.ingredientId];
-      const q = (Number(l.quantite) || 0) * f;
-      const manque = ing && q > (Number(ing.quantite) || 0);
-      return `<li class="flex items-center justify-between gap-3 py-2"><span class="flex items-center gap-2.5 min-w-0 text-[15px]">${ing?.miniature ? vignette({ ...ing }, 'w-9 h-9') : ''}<span class="truncate">${esc(ing?.nom || 'Ingrédient supprimé')}</span></span><span class="font-semibold tabular-nums text-[15px] whitespace-nowrap ${manque ? 'text-red-700' : ''}">${formaterQuantite(q, ing?.unite)}${manque ? ' <i class="fa-solid fa-triangle-exclamation text-xs" title="Stock insuffisant"></i>' : ''}</span></li>`;
-    }).join('');
-    const c = coutRecette(r);
-    $('#fiche-cout').textContent = euro(c.parPart * parts);
-  };
-  const etapes = String(r.etapes || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const rendement = Number(r.rendement) || 1;
+  let parts = rendement;
+  const coches = new Set();      // ingrédients déjà préparés
+  const faites = new Set();      // étapes terminées
+  const etapes = analyserEtapes(r.etapes);
+  const nbEtapes = etapes.filter(e => e.n).length;
   const m = db.produits[id] ? margeProduit(id) : null;
+  const photos = (r.photos || []).filter(Boolean);
+  const imageProduit = db.produits[id]?.image || '';
+  const quantite = l => (Number(l.quantite) || 0) * parts / rendement;
+  const puce = l => { const ing = db.ingredients[l.ingredientId]; return `<span class="inline-flex items-center gap-1.5 rounded-full bg-brand-100 text-brand-800 px-3 py-1 text-sm"><strong class="tabular-nums">${formaterQuantite(quantite(l), ing?.unite)}</strong> ${esc(ing?.nom || '')}</span>`; };
+
+  const materiel = (r.materiel || []).map(l => { const mt = db.materiel[l.materielId]; return { nom: mt?.nom || 'Matériel supprimé', besoin: Number(l.quantite) || 1, dispo: Number(mt?.quantite) || 0, mt }; });
+  const materielOk = materiel.every(l => l.dispo >= l.besoin);
+
+  const dessinerIngredients = () => {
+    let manque = 0;
+    $('#fiche-ingredients').innerHTML = r.ingredients.map((l, i) => {
+      const ing = db.ingredients[l.ingredientId];
+      const q = quantite(l), insuffisant = ing && q > (Number(ing.quantite) || 0), fait = coches.has(i);
+      if (insuffisant) manque++;
+      return `<li><button type="button" data-cocher="${i}" aria-pressed="${fait}" class="w-full flex items-center gap-3 py-3 text-left ${fait ? 'opacity-45' : ''}">
+        <span class="w-7 h-7 rounded-full border-2 flex-none grid place-items-center ${fait ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-brand-300'}">${fait ? '<i class="fa-solid fa-check text-xs"></i>' : ''}</span>
+        ${ing?.miniature ? `<img src="${ing.miniature}" alt="" class="w-11 h-11 rounded-xl object-cover flex-none">` : ''}
+        <span class="flex-1 min-w-0 text-[17px] leading-snug ${fait ? 'line-through' : ''}">${esc(ing?.nom || 'Ingrédient supprimé')}${insuffisant ? `<span class="block text-xs text-red-700 font-semibold mt-0.5"><i class="fa-solid fa-triangle-exclamation"></i> Stock : ${formaterQuantite(ing.quantite, ing.unite)}</span>` : ''}</span>
+        <span class="font-display text-xl tabular-nums whitespace-nowrap ${insuffisant ? 'text-red-700' : 'text-brand-950'}">${formaterQuantite(q, ing?.unite)}</span></button></li>`;
+    }).join('');
+    $('#fiche-stock').innerHTML = manque ? `<span class="text-red-700"><i class="fa-solid fa-triangle-exclamation"></i> ${manque} ingrédient${manque > 1 ? 's' : ''} à racheter</span>` : '<span class="text-emerald-700"><i class="fa-solid fa-circle-check"></i> Tout est en stock</span>';
+    $('#fiche-cout').textContent = euro(coutRecette(r).parPart * parts);
+    $('#fiche-parts-titre').textContent = `pour ${parts} part${parts > 1 ? 's' : ''}`;
+  };
+  const dessinerEtapes = () => {
+    $('#fiche-etapes').innerHTML = etapes.map(e => e.titre
+      ? `<li class="pt-3"><h4 class="font-display text-xl text-terracotta">${esc(e.titre)}</h4></li>`
+      : (() => { const fait = faites.has(e.n), cites = ingredientsCites(e.texte, r.ingredients);
+        return `<li><button type="button" data-etape="${e.n}" aria-pressed="${fait}" class="w-full text-left flex gap-4 bg-white rounded-2xl border border-brand-200 p-4 ${fait ? 'opacity-50' : ''}">
+          <span class="w-10 h-10 rounded-full ${fait ? 'bg-emerald-600' : 'bg-terracotta'} text-white font-display text-lg grid place-items-center flex-none">${fait ? '<i class="fa-solid fa-check text-base"></i>' : e.n}</span>
+          <span class="flex-1 min-w-0"><span class="block text-[17px] leading-relaxed text-brand-950 ${fait ? 'line-through' : ''}">${esc(e.texte)}</span>
+          ${cites.length ? `<span class="flex flex-wrap gap-1.5 mt-2.5">${cites.map(puce).join('')}</span>` : ''}</span></button></li>`; })()).join('');
+  };
+
   ouvrirPanneau({
     titre: nomRecette(id),
-    contenu: `<div class="space-y-5">
-      <div class="bg-white rounded-2xl border border-brand-200 p-4 flex items-center justify-between gap-3">
-        <span class="text-sm font-semibold">Pour</span>
-        <div class="flex items-center gap-1 bg-brand-50 rounded-xl border border-brand-200">
-          <button type="button" id="parts-moins" class="w-10 h-10 text-lg font-bold" aria-label="Moins de parts">−</button>
-          <input id="parts-fiche" type="number" min="1" value="${parts}" class="w-14 text-center bg-transparent font-display text-xl tabular-nums" aria-label="Nombre de parts">
-          <button type="button" id="parts-plus" class="w-10 h-10 text-lg font-bold" aria-label="Plus de parts">+</button>
+    large: true,
+    contenu: `<div class="space-y-6 -mx-5 -mt-5">
+      ${photos.length || imageProduit ? `<div>
+        <button type="button" id="fiche-photo" class="block w-full aspect-[4/3] sm:aspect-[16/9] bg-brand-100 overflow-hidden relative" ${photos.length ? '' : 'disabled'} aria-label="Agrandir la photo">
+          <img id="fiche-photo-img" src="${esc(r.miniature || imageProduit)}" alt="" class="w-full h-full object-cover">
+          ${photos.length > 1 ? `<span class="absolute bottom-3 right-3 bg-brand-950/80 text-white text-xs font-semibold px-2.5 py-1 rounded-full"><i class="fa-regular fa-images"></i> ${photos.length} photos</span>` : ''}
+        </button>
+        ${photos.length > 1 ? `<div id="fiche-galerie" class="flex gap-2 overflow-x-auto px-5 pt-3">${photos.map((p, i) => `<button type="button" data-photo="${i}" class="w-16 h-16 flex-none rounded-xl overflow-hidden bg-brand-100 ring-1 ring-brand-200" aria-label="Photo ${i + 1}"><img alt="" class="w-full h-full object-cover"></button>`).join('')}</div>` : ''}
+      </div>` : ''}
+      <div class="px-5 space-y-6 ${photos.length || imageProduit ? '' : 'pt-5'}">
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-white rounded-2xl border border-brand-200 py-3"><i class="fa-regular fa-clock text-terracotta"></i><div class="font-semibold mt-1">${dureeTexte(r.tempsMin) || '—'}</div><div class="text-[11px] text-brand-500">temps total</div></div>
+          <div class="bg-white rounded-2xl border border-brand-200 py-3"><i class="fa-solid fa-list-ol text-terracotta"></i><div class="font-semibold mt-1">${nbEtapes || '—'}</div><div class="text-[11px] text-brand-500">étape${nbEtapes > 1 ? 's' : ''}</div></div>
+          <div class="bg-white rounded-2xl border border-brand-200 py-3"><i class="fa-solid fa-coins text-terracotta"></i><div id="fiche-cout" class="font-semibold mt-1 tabular-nums"></div><div class="text-[11px] text-brand-500">d'ingrédients</div></div>
         </div>
-        <span class="text-sm">parts</span>
+
+        <div class="bg-white rounded-2xl border border-brand-200 p-3 flex items-center justify-between gap-3">
+          <span class="font-semibold pl-1">Nombre de parts</span>
+          <div class="flex items-center gap-1 bg-brand-50 rounded-xl border border-brand-200">
+            <button type="button" id="parts-moins" class="w-12 h-12 text-xl font-bold" aria-label="Moins de parts">−</button>
+            <input id="parts-fiche" type="number" min="1" value="${parts}" class="w-14 text-center bg-transparent font-display text-2xl tabular-nums" aria-label="Nombre de parts">
+            <button type="button" id="parts-plus" class="w-12 h-12 text-xl font-bold" aria-label="Plus de parts">+</button>
+          </div>
+        </div>
+
+        ${nbEtapes ? `<button type="button" id="fiche-pas-a-pas" class="${BTN.principal} w-full py-4 text-base"><i class="fa-solid fa-play"></i> Cuisiner pas à pas</button>` : ''}
+
+        <section>
+          <div class="flex items-end justify-between gap-3 mb-1">
+            <h3 class="font-display text-2xl">Ingrédients <span id="fiche-parts-titre" class="text-base text-brand-500 font-sans"></span></h3>
+          </div>
+          <p id="fiche-stock" class="text-sm font-semibold mb-1"></p>
+          <p class="text-xs text-brand-500 mb-1">Touchez un ingrédient pour le cocher quand il est pesé.</p>
+          <ul id="fiche-ingredients" class="bg-white rounded-2xl border border-brand-200 px-4 divide-y divide-brand-100"></ul>
+        </section>
+
+        ${materiel.length ? `<section>
+          <h3 class="font-display text-2xl mb-1">Matériel</h3>
+          <p class="text-sm font-semibold mb-2 ${materielOk ? 'text-emerald-700' : 'text-red-700'}">${materielOk ? '<i class="fa-solid fa-circle-check"></i> Tout est disponible' : '<i class="fa-solid fa-triangle-exclamation"></i> Il manque du matériel'}</p>
+          <ul class="bg-white rounded-2xl border ${materielOk ? 'border-brand-200' : 'border-red-300'} px-4 divide-y divide-brand-100">${materiel.map(l => `<li class="flex items-center gap-3 py-3">
+            ${l.mt?.miniature ? vignette({ ...l.mt }, 'w-11 h-11') : `<span class="w-11 h-11 rounded-xl bg-brand-100 grid place-items-center text-brand-400 flex-none"><i class="fa-solid fa-whisk"></i></span>`}
+            <span class="flex-1 min-w-0 text-[17px]">${esc(l.nom)}${l.besoin > 1 ? ` <span class="text-brand-500">× ${l.besoin}</span>` : ''}</span>
+            <span class="text-sm font-semibold whitespace-nowrap ${l.dispo >= l.besoin ? 'text-emerald-700' : 'text-red-700'}"><i class="fa-solid ${l.dispo >= l.besoin ? 'fa-check' : 'fa-xmark'}"></i> ${l.dispo} dispo.</span></li>`).join('')}</ul>
+        </section>` : ''}
+
+        ${nbEtapes ? `<section>
+          <h3 class="font-display text-2xl mb-1">Préparation</h3>
+          <p class="text-xs text-brand-500 mb-3">Touchez une étape pour la marquer comme faite.</p>
+          <ol id="fiche-etapes" class="space-y-3"></ol>
+        </section>` : `<p class="text-sm text-brand-500 bg-white rounded-2xl border border-dashed border-brand-300 p-4">Aucune étape écrite pour l'instant. Touchez « Modifier la recette » pour les ajouter.</p>`}
+
+        ${m ? `<section class="pb-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-brand-500 mb-2">Coût et marge (${m.parts} parts)</h3>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-white rounded-xl border border-brand-200 p-3"><div class="text-[11px] text-brand-500">Coût</div><div class="font-semibold tabular-nums">${euro(m.cout)}</div></div>
+            <div class="bg-white rounded-xl border border-brand-200 p-3"><div class="text-[11px] text-brand-500">Prix de vente</div><div class="font-semibold tabular-nums">${euro(m.prix)}</div></div>
+            <div class="rounded-xl p-3 ${m.taux >= 0.6 ? 'bg-emerald-50 text-emerald-800' : m.taux >= 0.4 ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-800'}"><div class="text-[11px]">Marge</div><div class="font-semibold tabular-nums">${Math.round(m.taux * 100)} %</div></div>
+          </div></section>` : ''}
       </div>
-      <section class="bg-white rounded-2xl border border-brand-200 px-4 py-2">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-brand-500 pt-2">Ingrédients</h3>
-        <ul id="fiche-ingredients" class="divide-y divide-brand-100"></ul>
-        <div class="flex justify-between text-sm border-t border-brand-200 py-2.5 text-brand-600"><span>Coût des ingrédients</span><strong id="fiche-cout" class="tabular-nums text-brand-900"></strong></div>
-      </section>
-      ${(r.materiel || []).length ? (() => {
-        const lignes = r.materiel.map(l => { const mt = db.materiel[l.materielId]; const dispo = Number(mt?.quantite) || 0; return { nom: mt?.nom || 'Matériel supprimé', besoin: Number(l.quantite) || 1, dispo, mt }; });
-        const ok = lignes.every(l => l.dispo >= l.besoin);
-        return `<section class="bg-white rounded-2xl border ${ok ? 'border-brand-200' : 'border-red-300'} px-4 py-2">
-          <div class="flex items-center justify-between pt-2"><h3 class="text-xs font-bold uppercase tracking-wider text-brand-500">Matériel</h3>
-            <span class="text-xs font-semibold ${ok ? 'text-emerald-700' : 'text-red-700'}">${ok ? '<i class="fa-solid fa-circle-check"></i> Tout est disponible' : '<i class="fa-solid fa-triangle-exclamation"></i> Il manque du matériel'}</span></div>
-          <ul class="divide-y divide-brand-100">${lignes.map(l => `<li class="flex items-center justify-between gap-3 py-2"><span class="flex items-center gap-2.5 min-w-0 text-[15px]"><i class="fa-solid ${l.dispo >= l.besoin ? 'fa-check text-emerald-600' : 'fa-xmark text-red-600'} w-4 flex-none"></i>${l.mt?.miniature ? vignette({ ...l.mt }, 'w-9 h-9') : ''}<span class="truncate">${esc(l.nom)}</span></span><span class="text-sm tabular-nums whitespace-nowrap ${l.dispo >= l.besoin ? 'text-brand-600' : 'text-red-700 font-semibold'}">${l.besoin > 1 ? l.besoin + ' nécessaires · ' : ''}${l.dispo} dispo.</span></li>`).join('')}</ul></section>`;
-      })() : ''}
-      ${m ? `<section class="grid grid-cols-3 gap-2 text-center">
-        <div class="bg-white rounded-xl border border-brand-200 p-3"><div class="text-[11px] text-brand-500">Coût (${m.parts} parts)</div><div class="font-semibold tabular-nums">${euro(m.cout)}</div></div>
-        <div class="bg-white rounded-xl border border-brand-200 p-3"><div class="text-[11px] text-brand-500">Prix de vente</div><div class="font-semibold tabular-nums">${euro(m.prix)}</div></div>
-        <div class="rounded-xl p-3 ${m.taux >= 0.6 ? 'bg-emerald-50 text-emerald-800' : m.taux >= 0.4 ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-800'}"><div class="text-[11px]">Marge</div><div class="font-semibold tabular-nums">${Math.round(m.taux * 100)} %</div></div>
-      </section>` : ''}
-      ${etapes.length ? `<section class="bg-white rounded-2xl border border-brand-200 p-4"><h3 class="text-xs font-bold uppercase tracking-wider text-brand-500 mb-3">Étapes${r.tempsMin ? ` · ${r.tempsMin} min` : ''}</h3>
-        <ol class="space-y-3">${etapes.map((s, i) => `<li class="flex gap-3"><span class="w-7 h-7 rounded-full bg-terracotta text-white text-sm font-bold grid place-items-center flex-none">${i + 1}</span><span class="text-[15px] pt-0.5">${esc(s)}</span></li>`).join('')}</ol></section>` : ''}
     </div>`,
     pied: `<button type="button" id="fiche-modifier" class="${BTN.sombre} w-full"><i class="fa-solid fa-pen"></i> Modifier la recette</button>`,
     onOuvert: (corps, pied) => {
-      dessinerQuantites();
-      const maj = n => { parts = Math.max(1, n || 1); $('#parts-fiche').value = parts; dessinerQuantites(); };
+      dessinerIngredients();
+      if (nbEtapes) dessinerEtapes();
+      const maj = n => { parts = Math.max(1, n || 1); $('#parts-fiche').value = parts; dessinerIngredients(); if (nbEtapes) dessinerEtapes(); };
       $('#parts-moins').onclick = () => maj(parts - 1);
       $('#parts-plus').onclick = () => maj(parts + 1);
-      $('#parts-fiche').oninput = e => { const n = parseInt(e.target.value, 10); if (n > 0) { parts = n; dessinerQuantites(); } };
+      $('#parts-fiche').oninput = e => { const n = parseInt(e.target.value, 10); if (n > 0) { parts = n; dessinerIngredients(); if (nbEtapes) dessinerEtapes(); } };
+      $('#fiche-ingredients').onclick = e => { const b = e.target.closest('[data-cocher]'); if (!b) return; const i = +b.dataset.cocher; coches.has(i) ? coches.delete(i) : coches.add(i); dessinerIngredients(); };
+      if (nbEtapes) $('#fiche-etapes').onclick = e => { const b = e.target.closest('[data-etape]'); if (!b) return; const n = +b.dataset.etape; faites.has(n) ? faites.delete(n) : faites.add(n); dessinerEtapes(); };
+      // Photos : grande photo, puis les autres en miniature
+      if (photos.length) {
+        lirePhoto(photos[0]).then(d => { if (d && $('#fiche-photo-img')) $('#fiche-photo-img').src = d; }).catch(() => {});
+        $('#fiche-photo').onclick = () => voirPhotos(photos, nomRecette(id), 0);
+        $$('#fiche-galerie [data-photo]').forEach(b => {
+          lirePhoto(photos[+b.dataset.photo]).then(d => { if (d) b.querySelector('img').src = d; }).catch(() => {});
+          b.onclick = () => voirPhotos(photos, nomRecette(id), +b.dataset.photo);
+        });
+      }
+      const pas = $('#fiche-pas-a-pas');
+      if (pas) pas.onclick = () => cuisinerPasAPas({ titre: nomRecette(id), r, etapes, parts, rendement, faites, apres: dessinerEtapes });
       $('#fiche-modifier', pied).onclick = () => editerRecette(id, !db.produits[id]);
     }
   });
+}
+
+// ---------- Mode « pas à pas » : une étape à la fois, en grand ----------
+// L'écran reste allumé pendant la préparation (si le téléphone le permet).
+function cuisinerPasAPas({ titre, r, etapes, parts, rendement, faites, apres }) {
+  const liste = [{ prep: true }];
+  let partie = '';
+  etapes.forEach(e => { if (e.titre) partie = e.titre; else liste.push({ ...e, partie }); });
+  let i = 0, verrou = null;
+  const quantite = l => (Number(l.quantite) || 0) * parts / rendement;
+  const ecran = document.createElement('div');
+  ecran.className = 'fixed inset-0 z-[55] bg-brand-50 flex flex-col';
+  ecran.setAttribute('role', 'dialog'); ecran.setAttribute('aria-modal', 'true'); ecran.setAttribute('aria-label', 'Recette pas à pas');
+  ecran.innerHTML = `
+    <div class="flex-none bg-white border-b border-brand-200" style="padding-top:env(safe-area-inset-top,0px)">
+      <div class="flex items-center gap-3 px-4 h-14"><span class="flex-1 min-w-0 truncate font-display text-lg">${esc(titre)}</span>
+        <button type="button" data-pas="fermer" class="w-11 h-11 grid place-items-center rounded-xl hover:bg-brand-100" aria-label="Quitter le pas à pas"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+      <div class="h-1.5 bg-brand-100"><div id="pas-barre" class="h-full bg-terracotta transition-all"></div></div>
+    </div>
+    <div id="pas-contenu" class="flex-1 overflow-y-auto px-5 py-6 max-w-2xl w-full mx-auto"></div>
+    <div class="flex-none bg-white border-t border-brand-200 px-4 py-3 flex gap-3 max-w-2xl w-full mx-auto" style="padding-bottom:calc(.75rem + env(safe-area-inset-bottom,0px))">
+      <button type="button" data-pas="prec" class="${BTN.secondaire} flex-1 py-4 text-base"><i class="fa-solid fa-arrow-left"></i> Précédente</button>
+      <button type="button" data-pas="suiv" class="${BTN.principal} flex-[2] py-4 text-base"></button>
+    </div>`;
+  const dessiner = () => {
+    const e = liste[i], total = liste.length - 1;
+    ecran.querySelector('#pas-barre').style.width = `${(i / total) * 100}%`;
+    ecran.querySelector('#pas-contenu').innerHTML = e.prep
+      ? `<p class="text-sm font-bold uppercase tracking-wider text-terracotta">Avant de commencer</p>
+         <h2 class="font-display text-3xl mt-1 mb-5">Sortez les ingrédients <span class="text-brand-500 text-xl">· ${parts} part${parts > 1 ? 's' : ''}</span></h2>
+         <ul class="bg-white rounded-2xl border border-brand-200 px-4 divide-y divide-brand-100">${r.ingredients.map(l => { const ing = db.ingredients[l.ingredientId]; return `<li class="flex items-center justify-between gap-3 py-3.5"><span class="text-xl">${esc(ing?.nom || 'Ingrédient supprimé')}</span><span class="font-display text-2xl tabular-nums whitespace-nowrap">${formaterQuantite(quantite(l), ing?.unite)}</span></li>`; }).join('')}</ul>`
+      : `<p class="text-sm font-bold uppercase tracking-wider text-terracotta">Étape ${e.n} sur ${total}${e.partie ? ` · ${esc(e.partie)}` : ''}</p>
+         <p class="text-[26px] leading-snug text-brand-950 mt-4">${esc(e.texte)}</p>
+         ${(() => { const c = ingredientsCites(e.texte, r.ingredients); return c.length ? `<div class="mt-6 space-y-2">${c.map(l => { const ing = db.ingredients[l.ingredientId]; return `<div class="flex items-center justify-between gap-3 bg-white rounded-2xl border border-brand-200 px-4 py-3"><span class="text-lg">${esc(ing?.nom || '')}</span><span class="font-display text-2xl tabular-nums">${formaterQuantite(quantite(l), ing?.unite)}</span></div>`; }).join('')}</div>` : ''; })()}`;
+    ecran.querySelector('#pas-contenu').scrollTop = 0;
+    ecran.querySelector('[data-pas="prec"]').disabled = i === 0;
+    ecran.querySelector('[data-pas="prec"]').classList.toggle('opacity-40', i === 0);
+    ecran.querySelector('[data-pas="suiv"]').innerHTML = i === 0 ? 'C\'est parti <i class="fa-solid fa-arrow-right"></i>' : i === total ? '<i class="fa-solid fa-check"></i> Terminé' : 'Suivante <i class="fa-solid fa-arrow-right"></i>';
+  };
+  const aller = d => {
+    if (d > 0 && liste[i].n) faites.add(liste[i].n);
+    if (d > 0 && i === liste.length - 1) { fermer(); toast('Bonne dégustation !'); return; }
+    i = Math.min(Math.max(0, i + d), liste.length - 1); dessiner();
+  };
+  const clavier = e => {
+    if (e.key === 'Escape') { e.stopPropagation(); fermer(); }
+    if (e.key === 'ArrowRight') aller(1);
+    if (e.key === 'ArrowLeft') aller(-1);
+  };
+  const reveil = () => { if (document.visibilityState === 'visible' && 'wakeLock' in navigator) navigator.wakeLock.request('screen').then(v => verrou = v).catch(() => {}); };
+  function fermer() {
+    document.removeEventListener('keydown', clavier, true);
+    document.removeEventListener('visibilitychange', reveil);
+    try { verrou?.release(); } catch (e) {}
+    ecran.remove(); apres();
+  }
+  ecran.addEventListener('click', e => {
+    const b = e.target.closest('[data-pas]'); if (!b) return;
+    if (b.dataset.pas === 'fermer') fermer(); else aller(b.dataset.pas === 'suiv' ? 1 : -1);
+  });
+  // Glisser vers la gauche ou la droite pour changer d'étape
+  let x0 = null;
+  ecran.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  ecran.addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 70) aller(dx < 0 ? 1 : -1); });
+  document.addEventListener('keydown', clavier, true);
+  document.addEventListener('visibilitychange', reveil);
+  document.body.appendChild(ecran);
+  reveil();
+  dessiner();
 }
 
 // Édition d'une recette
@@ -162,6 +333,7 @@ export function editerRecette(id, libre = false, reprise = null) {
         ${champ({ id: 'rec-rendement', label: 'Nombre de parts obtenues', type: 'number', valeur: r.rendement, attrs: 'min="1" step="1"' })}
         ${champ({ id: 'rec-temps', label: 'Temps total (min)', type: 'number', valeur: r.tempsMin || '', attrs: 'min="0" step="5"' })}
       </div>
+      <div><span class="block text-xs font-semibold text-brand-700 mb-1.5">Photos de la recette</span><div id="rec-photos"></div></div>
       <section class="space-y-2">
         <h3 class="text-xs font-bold uppercase tracking-wider text-brand-500">Ingrédients</h3>
         <div id="rec-lignes" class="space-y-2"></div>
@@ -185,12 +357,13 @@ export function editerRecette(id, libre = false, reprise = null) {
         <div class="grid grid-cols-2 gap-3">${selection({ id: 'ni-unite', label: 'Unité', options: Object.entries(UNITES).map(([k, u]) => [k, u.label]) })}${champ({ id: 'ni-prix', label: 'Prix (€ / kg, L ou pièce)', type: 'number', attrs: 'min="0" step="0.01"' })}</div>
         <div class="flex gap-2"><button type="button" id="ni-annuler" class="${BTN.secondaire}">Annuler</button><button type="button" id="ni-creer" class="${BTN.sombre} flex-1">Ajouter au stock</button></div>
       </div>
-      ${champ({ id: 'rec-etapes', label: 'Étapes (une par ligne)', type: 'textarea', valeur: r.etapes || '', attrs: 'rows="6"' })}
+      ${champ({ id: 'rec-etapes', label: 'Étapes', type: 'textarea', valeur: r.etapes || '', attrs: 'rows="8" placeholder="Pâte sablée :\nSabler le beurre avec la farine.\nAjouter le sucre glace et l\'œuf.\nCuisson :\nCuire 20 min à 170 °C."', aide: 'Une étape par ligne. Une ligne qui finit par « : » devient le titre d\'une partie (ex. « Pâte sablée : »). Les ingrédients cités sont affichés avec leur quantité dans la fiche.' })}
     </form>`,
     pied: `<div class="flex gap-2">${existante ? `<button type="button" id="rec-supprimer" class="${BTN.danger}" aria-label="Supprimer la recette"><i class="fa-regular fa-trash-can"></i></button>` : ''}<button type="button" data-action="fermer-panneau" class="${BTN.secondaire}">Annuler</button><button type="submit" form="form-recette" class="${BTN.principal} flex-1">Enregistrer</button></div>`,
     onOuvert: (corps, pied) => {
       let ligneEnAttente = null, mLigneEnAttente = null;
-      brouillon.demarrer({ type: 'recette', args: { id, libre }, racine: corps, extra: () => ({ ingredients: r.ingredients, materiel: r.materiel }) });
+      const photos = editeurPhotos($('#rec-photos'), r.photos || [], reprise?.extra?.photos);
+      brouillon.demarrer({ type: 'recette', args: { id, libre }, racine: corps, extra: () => ({ ingredients: r.ingredients, materiel: r.materiel, photos: photos.etat() }) });
       if (reprise) brouillon.appliquerChamps(corps, reprise.champs);
       dessinerLignes();
       dessinerMateriel();
@@ -245,7 +418,7 @@ export function editerRecette(id, libre = false, reprise = null) {
       };
       const sup = $('#rec-supprimer', pied);
       if (sup) sup.onclick = async () => {
-        if (await confirmer(`Supprimer la recette de « ${nomRecette(id)} » ?`, { bouton: 'Supprimer', danger: true })) { brouillon.terminer(); await supprimer('recettes', id); fermerPanneau(); toast('Recette supprimée'); }
+        if (await confirmer(`Supprimer la recette de « ${nomRecette(id)} » ?`, { bouton: 'Supprimer', danger: true })) { brouillon.terminer(); const ph = db.recettes[id]?.photos || []; await supprimer('recettes', id); ph.forEach(p => supprimerPhoto(p).catch(() => {})); fermerPanneau(); toast('Recette supprimée'); }
       };
       $('#form-recette').onsubmit = async e => {
         e.preventDefault();
@@ -257,6 +430,8 @@ export function editerRecette(id, libre = false, reprise = null) {
           etapes: $('#rec-etapes').value.trim()
         };
         if (libre) donnees.titre = $('#rec-titre').value.trim();
+        const bouton = pied.querySelector('button[type=submit]'); bouton.disabled = true; bouton.textContent = 'Enregistrement…';
+        try { Object.assign(donnees, await photos.enregistrer()); } catch (err) { toast(err.message, 'erreur'); bouton.disabled = false; bouton.textContent = 'Enregistrer'; return; }
         await enregistrer('recettes', id, donnees);
         toast('Recette enregistrée');
         brouillon.terminer();
