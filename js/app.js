@@ -1,6 +1,12 @@
 // Point d'entrée : connexion, navigation, affichage des écrans
 import * as store from './store.js';
-import { $, $$, esc, fermerPanneau, panneauOuvert, toast } from './ui.js';
+import { $, $$, esc, fermerPanneau, panneauOuvert, surPanneauQuitte, toast } from './ui.js';
+import * as brouillon from './brouillon.js';
+import { formulaireCommande } from './vues/commandes.js';
+import { formulaireProduit } from './vues/produits.js';
+import { editerRecette } from './vues/recettes.js';
+import { formulaireIngredient, mouvement } from './vues/stock.js';
+import { formulaireMateriel } from './vues/materiel.js';
 import tableau from './vues/tableau.js';
 import commandes from './vues/commandes.js';
 import produits from './vues/produits.js';
@@ -76,13 +82,58 @@ function afficher(changementDeRoute) {
   routeCourante = nom;
 }
 
+// ---------- Reprise d'une saisie interrompue ----------
+// Si l'application a été quittée (recherche sur internet, appareil photo…)
+// et qu'Android l'a fermée entre-temps, on rouvre le formulaire tel qu'il était.
+const ROUTE_BROUILLON = { commande: 'commandes', produit: 'produits', recette: 'recettes', ingredient: 'stock', mouvement: 'stock', materiel: 'stock', parametres: 'parametres' };
+let repriseFaite = false;
+
+function attendre(condition, delaiMax = 10000) {
+  return new Promise(resolve => {
+    const debut = Date.now();
+    const tester = () => { const r = condition(); if (r || Date.now() - debut > delaiMax) resolve(r); else setTimeout(tester, 150); };
+    tester();
+  });
+}
+const trouver = (col, id) => store.liste(col).find(x => x.id === id) || null;
+
+async function reprendreSaisie(b) {
+  const a = b.args || {};
+  const element = async col => a.id ? await attendre(() => trouver(col, a.id)) : null;
+  let ok = true;
+  switch (b.type) {
+    case 'commande': {
+      const existante = a.copie ? a.base : await element('commandes');
+      if (a.id && !existante) { ok = false; break; }
+      formulaireCommande(existante, !!a.copie, b); break;
+    }
+    case 'produit': { const p = await element('produits'); if (a.id && !p) { ok = false; break; } formulaireProduit(p, b); break; }
+    case 'recette': await attendre(() => store.liste('ingredients').length, 4000); editerRecette(a.id, !!a.libre, b); break;
+    case 'ingredient': { const i = await element('ingredients'); if (a.id && !i) { ok = false; break; } formulaireIngredient(i, b); break; }
+    case 'mouvement': { const i = await element('ingredients'); if (!i) { ok = false; break; } mouvement(i, b); break; }
+    case 'materiel': { const m = await element('materiel'); if (a.id && !m) { ok = false; break; } formulaireMateriel(m, b); break; }
+    case 'parametres': break; // l'écran Paramètres remet lui-même la saisie
+    default: ok = false;
+  }
+  if (ok) toast('Votre saisie en cours a été retrouvée');
+  else brouillon.terminer();
+}
+
 function demarrerApp(utilisateur) {
+  // Saisie interrompue à reprendre : se placer sur le bon écran avant d'afficher
+  const b = !repriseFaite ? brouillon.lire() : null;
+  repriseFaite = true;
+  if (b && ROUTE_BROUILLON[b.type]) {
+    const route = '#' + ROUTE_BROUILLON[b.type];
+    if (location.hash !== route) history.replaceState(null, '', route);
+  }
   $('#ecran-connexion').classList.add('hidden');
   $('#app').classList.remove('hidden');
   $('#utilisateur').textContent = utilisateur.email || '';
   $('#bandeau-demo').classList.toggle('hidden', store.mode !== 'demo');
   $('#lien-site').href = URL_SITE;
   afficher(true);
+  if (b && ROUTE_BROUILLON[b.type]) reprendreSaisie(b);
 }
 
 function montrerConnexion(erreur) {
@@ -144,7 +195,11 @@ async function demarrer() {
     const err = e.reason;
     if (err && (err.code || err.name === 'FirebaseError')) { e.preventDefault(); toast(store.messageErreur(err), 'erreur'); }
   });
-  window.addEventListener('hashchange', () => { fermerPanneau(); if (!$('#app').classList.contains('hidden')) afficher(true); });
+  // Formulaire fermé ou remplacé volontairement : oublier le brouillon
+  surPanneauQuitte(() => { if (!brouillon.estActif('parametres')) brouillon.abandonner(); });
+  window.addEventListener('hashchange', () => {
+    if (brouillon.estActif('parametres') && routeDepuisAdresse().nom !== 'parametres') brouillon.terminer();
+    fermerPanneau(); if (!$('#app').classList.contains('hidden')) afficher(true); });
   store.surChangement(() => { if (!$('#app').classList.contains('hidden')) afficher(false); });
 
   try {
