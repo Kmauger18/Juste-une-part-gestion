@@ -6,6 +6,7 @@ import { $, $$, esc, euro, toast, confirmer, champ, selection, etatVide, BTN, vu
 import { coutRecette, coutIngredient, margeProduit, formaterQuantite } from '../calculs.js';
 import * as brouillon from '../brouillon.js';
 import { vignette, voirPhotos, editeurPhotos } from '../photos.js';
+import { ouvrirImport } from '../import-recette.js';
 
 let recherche = '';
 let repriseEnAttente = null;   // saisie interrompue à remettre dans l'éditeur
@@ -70,6 +71,10 @@ function photosHTML(ids, groupe, titre) {
 }
 
 // ---------- Navigation ----------
+// Import d'une recette depuis un lien : on ouvre la modification déjà remplie
+export function importerRecette(lien = '') {
+  ouvrirImport({ lien, quandPret: reprise => editerRecette('r-' + Math.random().toString(36).slice(2, 9), true, reprise) });
+}
 export function ouvrirRecette(id) { location.hash = '#recettes/' + id; }
 export function editerRecette(id, libre = false, reprise = null) {
   repriseEnAttente = reprise;
@@ -105,7 +110,10 @@ function afficherListe(el, vueRecettes) {
   vue(el).innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
       <h1 class="hidden lg:block font-display text-3xl">Recettes</h1>
-      <button type="button" data-r="libre" class="${BTN.secondaire} w-full sm:w-auto"><i class="fa-solid fa-plus"></i> Recette de base (pâte, crème…)</button>
+      <div class="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
+        <button type="button" data-r="importer" class="${BTN.principal}"><i class="fa-solid fa-link"></i> Importer d'un lien</button>
+        <button type="button" data-r="libre" class="${BTN.secondaire}"><i class="fa-solid fa-plus"></i> Recette de base</button>
+      </div>
     </div>
     <p class="text-sm text-brand-600 mb-4">${avec} recette${avec > 1 ? 's' : ''} renseignée${avec > 1 ? 's' : ''}. Avec les recettes, le coût de revient, la marge et les besoins en ingrédients sont calculés tout seuls.</p>
     <label class="relative block mb-5 sm:w-72"><span class="sr-only">Rechercher</span><i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-brand-400 text-sm"></i>
@@ -125,7 +133,10 @@ function afficherListe(el, vueRecettes) {
         <i class="fa-solid fa-chevron-right text-brand-300 text-sm"></i></a>`;
     }).join('')}</div>` : etatVide({ icone: 'fa-solid fa-book-open', titre: 'Aucune recette', texte: 'Ajoutez d\'abord des gâteaux dans « Produits », puis leurs recettes ici.' })}`;
 
-  el.onclick = e => { if (e.target.closest('[data-r="libre"]')) editerRecette('r-' + Math.random().toString(36).slice(2, 9), true); };
+  el.onclick = e => {
+    if (e.target.closest('[data-r="libre"]')) editerRecette('r-' + Math.random().toString(36).slice(2, 9), true);
+    if (e.target.closest('[data-r="importer"]')) importerRecette();
+  };
   $('#recherche-recettes', el).oninput = e => { recherche = e.target.value; vueRecettes.render(el, {}); };
 }
 
@@ -207,6 +218,7 @@ function afficherFiche(el, id) {
         <header class="pt-5">
           <p class="text-xs font-bold uppercase tracking-wider text-terracotta">${esc(surtitre)}</p>
           <h1 class="font-display text-4xl sm:text-5xl leading-tight mt-1">${esc(nomRecette(id))}</h1>
+          ${r.source ? `<a href="${esc(r.source)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-sm text-brand-600 hover:text-terracotta mt-2"><i class="fa-solid fa-link text-xs"></i> D'après ${esc((() => { try { return new URL(r.source).hostname.replace(/^www\./, ''); } catch (e) { return 'le site d\'origine'; } })())}</a>` : ''}
         </header>
 
         <div class="mt-5 grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-5 items-start">
@@ -380,7 +392,7 @@ function afficherEditeur(el, id, force = false) {
   const r = JSON.parse(JSON.stringify(existante || { rendement: db.produits[id]?.tailles ? 8 : 1, tempsMin: 60, ingredients: [], materiel: [], etapes: '', titre: '' }));
   if (!r.materiel) r.materiel = [];
   if (!r.ingredients) r.ingredients = [];
-  if (reprise?.extra) { r.ingredients = reprise.extra.ingredients || r.ingredients; r.materiel = reprise.extra.materiel || r.materiel; }
+  if (reprise?.extra) { r.ingredients = reprise.extra.ingredients || r.ingredients; r.materiel = reprise.extra.materiel || r.materiel; if (reprise.extra.source) r.source = reprise.extra.source; }
   if (!r.ingredients.length) r.ingredients.push({ ingredientId: '', quantite: 0 });
   const photosASupprimer = [...(reprise?.extra?.photosASupprimer || [])];
   const titre = existante ? nomRecette(id) : (db.produits[id] ? db.produits[id].titre : 'Nouvelle recette');
@@ -535,7 +547,7 @@ function afficherEditeur(el, id, force = false) {
   };
 
   brouillon.demarrer({ type: 'recette', args: { id, libre }, racine: page, extra: () => ({
-    ingredients: r.ingredients, materiel: r.materiel, photos: photosPrincipales.etat(), photosASupprimer,
+    ingredients: r.ingredients, materiel: r.materiel, photos: photosPrincipales.etat(), photosASupprimer, source: r.source || '',
     blocs: blocs.map(b => ({ type: b.type, texte: b.champ.value, photosEtat: b.editeur ? b.editeur.etat() : null }))
   }) });
   if (reprise) brouillon.appliquerChamps(page, reprise.champs);
@@ -627,6 +639,7 @@ function afficherEditeur(el, id, force = false) {
         photos: principales.photos, miniature: principales.miniature
       };
       if (libre) donnees.titre = $('#rec-titre').value.trim();
+      if (r.source) donnees.source = r.source;
       if (JSON.stringify(donnees).length > 900000) throw new Error('La recette est trop lourde à enregistrer.');
       await enregistrer('recettes', id, donnees);
       photosASupprimer.forEach(p => supprimerPhoto(p).catch(() => {}));

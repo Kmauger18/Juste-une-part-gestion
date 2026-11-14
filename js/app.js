@@ -4,7 +4,7 @@ import { $, $$, esc, fermerPanneau, panneauOuvert, surPanneauQuitte, toast } fro
 import * as brouillon from './brouillon.js';
 import { formulaireCommande } from './vues/commandes.js';
 import { formulaireProduit } from './vues/produits.js';
-import { editerRecette } from './vues/recettes.js';
+import { editerRecette, importerRecette } from './vues/recettes.js';
 import { formulaireIngredient, mouvement } from './vues/stock.js';
 import { formulaireMateriel } from './vues/materiel.js';
 import tableau from './vues/tableau.js';
@@ -119,9 +119,27 @@ async function reprendreSaisie(b) {
   else brouillon.terminer();
 }
 
+// ---------- Lien de recette partagé depuis un autre site ----------
+// Android : « Partager » → « Gestion pâtisserie » ouvre l'appli sur #importer=<lien>
+let lienPartage = null;
+function lireLienPartage() {
+  if (!location.hash.startsWith('#importer=')) return false;
+  lienPartage = decodeURIComponent(location.hash.slice(10));
+  history.replaceState(null, '', '#recettes');
+  return true;
+}
+function traiterLienPartage() {
+  if (!lienPartage || $('#app').classList.contains('hidden')) return;
+  const lien = lienPartage; lienPartage = null;
+  if (location.hash !== '#recettes') history.replaceState(null, '', '#recettes');
+  afficher(true);
+  importerRecette(lien);
+}
+
 function demarrerApp(utilisateur) {
   // Saisie interrompue à reprendre : se placer sur le bon écran avant d'afficher
-  const b = !repriseFaite ? brouillon.lire() : null;
+  lireLienPartage();
+  const b = !repriseFaite && !lienPartage ? brouillon.lire() : null;
   repriseFaite = true;
   if (b && ROUTE_BROUILLON[b.type]) {
     const route = '#' + ROUTE_BROUILLON[b.type];
@@ -134,6 +152,7 @@ function demarrerApp(utilisateur) {
   $('#lien-site').href = URL_SITE;
   afficher(true);
   if (b && ROUTE_BROUILLON[b.type]) reprendreSaisie(b);
+  traiterLienPartage();
 }
 
 function montrerConnexion(erreur) {
@@ -198,6 +217,7 @@ async function demarrer() {
   // Formulaire fermé ou remplacé volontairement : oublier le brouillon
   surPanneauQuitte(() => { if (!brouillon.estActif('parametres')) brouillon.abandonner(); });
   window.addEventListener('hashchange', () => {
+    if (lireLienPartage()) { traiterLienPartage(); return; }
     if (brouillon.estActif('parametres') && routeDepuisAdresse().nom !== 'parametres') brouillon.terminer();
     if (brouillon.estActif('recette') && !/^#recettes\/[^/]+\/modifier$/.test(location.hash)) brouillon.terminer();
     fermerPanneau(); if (!$('#app').classList.contains('hidden')) afficher(true); });
