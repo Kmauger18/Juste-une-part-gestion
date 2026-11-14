@@ -61,4 +61,4 @@ npm install
 npm run apk   # → android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-À recompiler seulement si l'icône, le nom, les permissions (appareil photo) ou l'adresse de l'espace changent. Version actuelle : 1.2.
+À recompiler seulement si l'icône, le nom, les permissions (appareil photo) ou l'adresse de l'espace changent. Version actuelle : 1.3 (charge toujours la dernière version du site, sans cache).
