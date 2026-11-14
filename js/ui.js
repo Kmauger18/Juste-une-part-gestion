@@ -61,9 +61,11 @@ let fermetureCourante = null;
 const quandPanneauQuitte = [];
 export function surPanneauQuitte(fn) { quandPanneauQuitte.push(fn); }
 
-export function ouvrirPanneau({ titre, contenu, pied = '', onOuvert, onFerme }) {
+export function ouvrirPanneau({ titre, contenu, pied = '', onOuvert, onFerme, large = false }) {
   quandPanneauQuitte.forEach(fn => fn());
   const p = $('#panneau');
+  const boite = p.querySelector('.panneau-boite');
+  boite.classList.toggle('sm:max-w-lg', !large); boite.classList.toggle('sm:max-w-3xl', large);
   $('#panneau-titre').textContent = titre;
   $('#panneau-corps').innerHTML = contenu;
   $('#panneau-pied').innerHTML = pied;
