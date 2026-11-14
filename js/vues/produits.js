@@ -3,6 +3,7 @@ import { liste, obtenir, creer, enregistrer, modifier, supprimer, importerCatalo
 import { CATEGORIES, ALLERGENES, TAILLES, categorieActuelle } from '../donnees.js';
 import { $, $$, esc, euro, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, interrupteur, etatVide, compresserImage, BTN } from '../ui.js';
 import { margeProduit } from '../calculs.js';
+import * as brouillon from '../brouillon.js';
 
 let categorie = 'toutes';
 
@@ -86,10 +87,10 @@ export default {
   }
 };
 
-export function formulaireProduit(p) {
+export function formulaireProduit(p, reprise = null) {
   const edition = !!p;
   p = p || { titre: '', categorie: 'tartes', prix: 25, badge: '', image: '', accroche: '', description: '', ingredients: '', allergenes: [], tailles: true, unite: '', conservation: '', delai: 'À commander 48 h à l\'avance.', sansGluten: false, visible: true, vedette: false, ordre: liste('produits').length + 1 };
-  let image = p.image || '';
+  let image = reprise?.extra?.image ?? (p.image || '');
 
   const corps = `<form id="form-produit" class="space-y-6" novalidate>
     <section class="space-y-3">
@@ -98,7 +99,8 @@ export function formulaireProduit(p) {
         <div id="sans-image" class="absolute inset-0 grid place-items-center text-brand-400 text-sm ${image ? 'hidden' : ''}"><span><i class="fa-solid fa-image text-3xl block text-center mb-2"></i>Pas encore de photo</span></div>
       </div>
       <div class="flex gap-2">
-        <label class="${BTN.sombre} flex-1 cursor-pointer"><i class="fa-solid fa-camera"></i> Photo<input type="file" id="pr-fichier" accept="image/*" class="sr-only"></label>
+        <label class="${BTN.sombre} flex-1 cursor-pointer"><i class="fa-solid fa-camera"></i> Appareil photo<input type="file" id="pr-camera" accept="image/*" capture="environment" class="sr-only"></label>
+        <label class="${BTN.secondaire} flex-1 cursor-pointer"><i class="fa-regular fa-images"></i> Galerie<input type="file" id="pr-fichier" accept="image/*" class="sr-only"></label>
         <button type="button" id="pr-retirer-image" class="${BTN.secondaire}">Retirer</button>
       </div>
       <details class="text-sm"><summary class="cursor-pointer text-brand-600">Ou coller l'adresse d'une image</summary><div class="mt-2">${champ({ id: 'pr-url', label: 'Adresse de l\'image (https://…)', type: 'url', valeur: image.startsWith('data:') ? '' : image })}</div></details>
@@ -167,16 +169,19 @@ export function formulaireProduit(p) {
       };
       majPrix();
       $('#pr-prix').oninput = majPrix; $('#pr-tailles').onchange = majPrix;
-      $('#pr-fichier').onchange = async e => {
+      $('#pr-fichier').onchange = $('#pr-camera').onchange = async e => {
         const f = e.target.files[0]; if (!f) return;
-        try { majImage(await compresserImage(f)); toast('Photo ajoutée'); } catch (err) { toast(err.message, 'erreur'); }
+        try { majImage(await compresserImage(f)); toast('Photo ajoutée'); brouillon.planifier(); } catch (err) { toast(err.message, 'erreur'); }
+        e.target.value = '';
       };
       $('#pr-url').oninput = e => majImage(e.target.value.trim());
       $('#pr-retirer-image').onclick = () => { majImage(''); $('#pr-url').value = ''; };
+      brouillon.demarrer({ type: 'produit', args: { id: edition ? p.id : null }, racine: corpsEl, extra: () => ({ image }) });
+      if (reprise) { brouillon.appliquerChamps(corpsEl, reprise.champs); majImage(image); majPrix(); }
       const sup = $('#pr-supprimer', piedEl);
       if (sup) sup.onclick = async () => {
         if (await confirmer(`Supprimer « ${p.titre} » du catalogue ? Il disparaîtra du site. Les commandes passées ne sont pas modifiées.`, { bouton: 'Supprimer', danger: true })) {
-          await supprimer('produits', p.id); fermerPanneau(); toast('Gâteau supprimé');
+          brouillon.terminer(); await supprimer('produits', p.id); fermerPanneau(); toast('Gâteau supprimé');
         }
       };
       $('#form-produit').onsubmit = async e => {
@@ -193,7 +198,7 @@ export function formulaireProduit(p) {
         if (JSON.stringify(donnees).length > 900000) { toast('La photo est trop lourde, choisissez-en une autre.', 'erreur'); return; }
         if (edition) { await enregistrer('produits', p.id, donnees); toast('Gâteau enregistré'); }
         else { let id = slug(donnees.titre); if (db.produits[id]) id += '-' + Math.random().toString(36).slice(2, 5); await creer('produits', donnees, id); toast('Gâteau ajouté au catalogue'); }
-        fermerPanneau();
+        brouillon.terminer(); fermerPanneau();
       };
     }
   });

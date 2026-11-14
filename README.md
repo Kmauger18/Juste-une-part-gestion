@@ -17,6 +17,10 @@ En ligne (une fois GitHub Pages activé) : https://kmauger18.github.io/Juste-une
 | **Stock** | Ingrédients (alertes de seuil, réceptions, inventaire, liste de courses) et matériel (moules, ustensiles, appareils, emballages) |
 | **Paramètres** | Téléphone, e-mail, adresse, horaires et créneaux affichés sur le site, ouverture ou fermeture des commandes, sauvegarde |
 
+**Saisie jamais perdue :** si l'application est quittée en pleine saisie (recherche d'une recette sur internet, appel, appareil photo…), le formulaire est rouvert tel quel au retour, même si Android a fermé l'application entre-temps. Le brouillon est effacé à l'enregistrement ou à l'annulation.
+
+**Photos :** chaque formulaire propose « Appareil photo » (prise de vue directe dans l'application) et « Galerie ».
+
 Le stock se met à jour tout seul : quand une commande passe à « Prête », les ingrédients de ses recettes sont déduits ; si elle est annulée, ils sont remis.
 
 ## Sécurité
@@ -57,4 +61,4 @@ npm install
 npm run apk   # → android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-À recompiler seulement si l'icône, le nom ou l'adresse de l'espace changent.
+À recompiler seulement si l'icône, le nom, les permissions (appareil photo) ou l'adresse de l'espace changent. Version actuelle : 1.2.

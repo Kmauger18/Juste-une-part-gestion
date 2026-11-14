@@ -3,6 +3,7 @@ import { liste, obtenir, enregistrer, supprimer, creer, db } from '../store.js';
 import { UNITES, CATEGORIES_MATERIEL } from '../donnees.js';
 import { $, $$, esc, euro, nombre, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN } from '../ui.js';
 import { coutRecette, coutIngredient, margeProduit, formaterQuantite } from '../calculs.js';
+import * as brouillon from '../brouillon.js';
 import { vignette } from '../photos.js';
 
 let recherche = '';
@@ -114,10 +115,11 @@ export function ouvrirRecette(id) {
 }
 
 // Édition d'une recette
-export function editerRecette(id, libre = false) {
+export function editerRecette(id, libre = false, reprise = null) {
   const existante = db.recettes[id];
   const r = JSON.parse(JSON.stringify(existante || { rendement: db.produits[id]?.tailles ? 8 : 1, tempsMin: 60, ingredients: [], materiel: [], etapes: '', titre: '' }));
   if (!r.materiel) r.materiel = [];
+  if (reprise?.extra) { r.ingredients = reprise.extra.ingredients || r.ingredients; r.materiel = reprise.extra.materiel || r.materiel; }
   if (!r.ingredients.length) r.ingredients.push({ ingredientId: '', quantite: 0 });
 
   const optionsIngredients = sel => `<option value="">Choisir…</option>` + liste('ingredients').sort((a, b) => a.nom.localeCompare(b.nom)).map(i => `<option value="${i.id}" ${i.id === sel ? 'selected' : ''}>${esc(i.nom)}</option>`).join('') + '<option value="__nouveau">+ Nouvel ingrédient…</option>';
@@ -188,6 +190,8 @@ export function editerRecette(id, libre = false) {
     pied: `<div class="flex gap-2">${existante ? `<button type="button" id="rec-supprimer" class="${BTN.danger}" aria-label="Supprimer la recette"><i class="fa-regular fa-trash-can"></i></button>` : ''}<button type="button" data-action="fermer-panneau" class="${BTN.secondaire}">Annuler</button><button type="submit" form="form-recette" class="${BTN.principal} flex-1">Enregistrer</button></div>`,
     onOuvert: (corps, pied) => {
       let ligneEnAttente = null, mLigneEnAttente = null;
+      brouillon.demarrer({ type: 'recette', args: { id, libre }, racine: corps, extra: () => ({ ingredients: r.ingredients, materiel: r.materiel }) });
+      if (reprise) brouillon.appliquerChamps(corps, reprise.champs);
       dessinerLignes();
       dessinerMateriel();
       $('#rec-materiel').addEventListener('change', e => {
@@ -241,7 +245,7 @@ export function editerRecette(id, libre = false) {
       };
       const sup = $('#rec-supprimer', pied);
       if (sup) sup.onclick = async () => {
-        if (await confirmer(`Supprimer la recette de « ${nomRecette(id)} » ?`, { bouton: 'Supprimer', danger: true })) { await supprimer('recettes', id); fermerPanneau(); toast('Recette supprimée'); }
+        if (await confirmer(`Supprimer la recette de « ${nomRecette(id)} » ?`, { bouton: 'Supprimer', danger: true })) { brouillon.terminer(); await supprimer('recettes', id); fermerPanneau(); toast('Recette supprimée'); }
       };
       $('#form-recette').onsubmit = async e => {
         e.preventDefault();
@@ -255,6 +259,7 @@ export function editerRecette(id, libre = false) {
         if (libre) donnees.titre = $('#rec-titre').value.trim();
         await enregistrer('recettes', id, donnees);
         toast('Recette enregistrée');
+        brouillon.terminer();
         ouvrirRecette(id);
       };
     }

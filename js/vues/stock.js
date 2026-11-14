@@ -4,6 +4,7 @@ import { UNITES } from '../donnees.js';
 import { $, esc, euro, isoJour, ajouterJours, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, etatVide, BTN } from '../ui.js';
 import { formaterQuantite, coutIngredient, besoinsCommandes } from '../calculs.js';
 import { renderMateriel } from './materiel.js';
+import * as brouillon from '../brouillon.js';
 import { editeurPhotos, vignette } from '../photos.js';
 
 let filtre = 'tous';
@@ -95,7 +96,7 @@ export default {
   }
 };
 
-function mouvement(i) {
+export function mouvement(i, reprise = null) {
   const u = UNITES[i.unite] || UNITES.g;
   ouvrirPanneau({
     titre: i.nom,
@@ -120,20 +121,23 @@ function mouvement(i) {
         $('#mvt-resultat').innerHTML = $('#mvt-quantite').value === '' ? '' : `Nouveau stock : <strong>${formaterQuantite(n, i.unite)}</strong>`;
         return n;
       };
-      corps.addEventListener('input', calc); corps.addEventListener('change', calc); calc();
+      corps.addEventListener('input', calc); corps.addEventListener('change', calc);
+      brouillon.demarrer({ type: 'mouvement', args: { id: i.id }, racine: corps });
+      if (reprise) brouillon.appliquerChamps(corps, reprise.champs);
+      calc();
       $('#mvt-quantite').focus();
       $('#mvt-valider', pied).onclick = async () => {
         if ($('#mvt-quantite').value === '') { $('#mvt-quantite').focus(); return; }
         const data = { quantite: Math.round(calc() * 100) / 100 };
         const prix = $('#mvt-prix').value; if (type() === 'entree' && prix !== '') data.prix = Number(prix) || 0;
         await modifier('ingredients', i.id, data);
-        fermerPanneau(); toast(`${i.nom} : ${formaterQuantite(data.quantite, i.unite)}`);
+        brouillon.terminer(); fermerPanneau(); toast(`${i.nom} : ${formaterQuantite(data.quantite, i.unite)}`);
       };
     }
   });
 }
 
-function formulaireIngredient(i) {
+export function formulaireIngredient(i, reprise = null) {
   const edition = !!i;
   i = i || { nom: '', unite: 'g', quantite: 0, seuil: 0, prix: 0, fournisseur: '' };
   const utilisee = edition ? Object.entries(db.recettes).filter(([, r]) => (r.ingredients || []).some(l => l.ingredientId === i.id)).map(([id, r]) => db.produits[id]?.titre || r.titre || id) : [];
@@ -153,11 +157,13 @@ function formulaireIngredient(i) {
     </form>`,
     pied: `<div class="flex gap-2">${edition ? `<button type="button" id="in-supprimer" class="${BTN.danger}" aria-label="Supprimer"><i class="fa-regular fa-trash-can"></i></button>` : ''}<button type="button" data-action="fermer-panneau" class="${BTN.secondaire}">Annuler</button><button type="submit" form="form-ingredient" class="${BTN.principal} flex-1">Enregistrer</button></div>`,
     onOuvert: (corps, pied) => {
-      const photos = editeurPhotos($('#in-photos'), i.photos || []);
+      const photos = editeurPhotos($('#in-photos'), i.photos || [], reprise?.extra?.photos);
+      brouillon.demarrer({ type: 'ingredient', args: { id: edition ? i.id : null }, racine: corps, extra: () => ({ photos: photos.etat() }) });
+      if (reprise) brouillon.appliquerChamps(corps, reprise.champs);
       const sup = $('#in-supprimer', pied);
       if (sup) sup.onclick = async () => {
         const msg = utilisee.length ? `« ${i.nom} » est utilisé dans ${utilisee.length} recette(s). Le supprimer quand même ?` : `Supprimer « ${i.nom} » ?`;
-        if (await confirmer(msg, { bouton: 'Supprimer', danger: true })) { await supprimer('ingredients', i.id); (i.photos || []).forEach(id => supprimerPhoto(id).catch(() => {})); fermerPanneau(); toast('Ingrédient supprimé'); }
+        if (await confirmer(msg, { bouton: 'Supprimer', danger: true })) { brouillon.terminer(); await supprimer('ingredients', i.id); (i.photos || []).forEach(id => supprimerPhoto(id).catch(() => {})); fermerPanneau(); toast('Ingrédient supprimé'); }
       };
       $('#form-ingredient').onsubmit = async e => {
         e.preventDefault();
@@ -167,7 +173,7 @@ function formulaireIngredient(i) {
         const bouton = pied.querySelector('button[type=submit]'); bouton.disabled = true; bouton.textContent = 'Enregistrement…';
         try { Object.assign(d, await photos.enregistrer()); } catch (err) { toast(err.message, 'erreur'); bouton.disabled = false; bouton.textContent = 'Enregistrer'; return; }
         if (edition) await enregistrer('ingredients', i.id, d); else await creer('ingredients', d);
-        fermerPanneau(); toast('Ingrédient enregistré');
+        brouillon.terminer(); fermerPanneau(); toast('Ingrédient enregistré');
       };
     }
   });

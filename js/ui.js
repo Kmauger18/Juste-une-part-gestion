@@ -56,7 +56,13 @@ export function toast(message, type = 'ok') {
 
 // ---------- Panneau latéral (plein écran sur mobile) ----------
 let fermetureCourante = null;
+// Fonctions appelées quand le contenu du panneau est remplacé ou fermé
+// (sert à effacer le brouillon d'une saisie abandonnée volontairement)
+const quandPanneauQuitte = [];
+export function surPanneauQuitte(fn) { quandPanneauQuitte.push(fn); }
+
 export function ouvrirPanneau({ titre, contenu, pied = '', onOuvert, onFerme }) {
+  quandPanneauQuitte.forEach(fn => fn());
   const p = $('#panneau');
   $('#panneau-titre').textContent = titre;
   $('#panneau-corps').innerHTML = contenu;
@@ -72,6 +78,7 @@ export function ouvrirPanneau({ titre, contenu, pied = '', onOuvert, onFerme }) 
 export function fermerPanneau() {
   const p = $('#panneau');
   if (p.classList.contains('hidden')) return;
+  quandPanneauQuitte.forEach(fn => fn());
   p.classList.remove('ouvert');
   document.body.classList.remove('overflow-hidden');
   setTimeout(() => p.classList.add('hidden'), 200);

@@ -2,6 +2,7 @@
 import { liste, obtenir, parametres, creer, enregistrer, modifier, supprimer, lot, db } from '../store.js';
 import { STATUTS, ORDRE_STATUTS, TAILLES } from '../donnees.js';
 import { $, $$, esc, euro, isoJour, dateRelative, dateLongue, ecartJours, badgeStatut, toast, ouvrirPanneau, fermerPanneau, confirmer, copier, champ, selection, interrupteur, etatVide, BTN } from '../ui.js';
+import * as brouillon from '../brouillon.js';
 import { besoinsCommandes, besoinsMateriel, operationsDeduction, totalCommande, formaterQuantite, prochainNumero } from '../calculs.js';
 
 const FILTRES = {
@@ -235,12 +236,12 @@ async function changerStatut(c, statut) {
 // ---------------------------------------------------------------
 //  Formulaire création / modification
 // ---------------------------------------------------------------
-function formulaireCommande(existante = null, copie = false) {
+export function formulaireCommande(existante = null, copie = false, reprise = null) {
   const p = parametres();
   const produits = liste('produits').sort((a, b) => (a.ordre || 99) - (b.ordre || 99));
   const creneaux = String(p.creneaux || '').split('\n').map(s => s.trim()).filter(Boolean);
   const edition = existante && !copie;
-  let lignes = JSON.parse(JSON.stringify(existante?.lignes || [{ produitId: produits[0]?.id || null, titre: produits[0]?.titre || '', taille: produits[0]?.tailles ? TAILLES[1].label : (produits[0]?.unite || ''), parts: produits[0]?.tailles ? 8 : 1, qty: 1, prix: Number(produits[0]?.prix) || 0 }]));
+  let lignes = reprise?.extra?.lignes ? JSON.parse(JSON.stringify(reprise.extra.lignes)) : JSON.parse(JSON.stringify(existante?.lignes || [{ produitId: produits[0]?.id || null, titre: produits[0]?.titre || '', taille: produits[0]?.tailles ? TAILLES[1].label : (produits[0]?.unite || ''), parts: produits[0]?.tailles ? 8 : 1, qty: 1, prix: Number(produits[0]?.prix) || 0 }]));
 
   const optionsProduits = sel => [...produits.map(pr => `<option value="${pr.id}" ${pr.id === sel ? 'selected' : ''}>${esc(pr.titre)}</option>`), `<option value="" ${!sel ? 'selected' : ''}>Autre / sur mesure…</option>`].join('');
 
@@ -303,6 +304,8 @@ function formulaireCommande(existante = null, copie = false) {
     pied: `<div class="flex gap-2"><button type="button" data-action="fermer-panneau" class="${BTN.secondaire}">Annuler</button><button type="submit" form="form-commande" class="${BTN.principal} flex-1">${edition ? 'Enregistrer' : 'Créer la commande'}</button></div>`,
     onOuvert: corpsEl => {
       dessinerLignes();
+      brouillon.demarrer({ type: 'commande', args: { id: edition ? existante.id : null, copie: !!copie, base: copie ? existante : null }, racine: corpsEl, extra: () => ({ lignes }) });
+      if (reprise) brouillon.appliquerChamps(corpsEl, reprise.champs);
       $('#lignes').addEventListener('input', e => {
         const bloc = e.target.closest('[data-ligne]'); if (!bloc) return;
         const i = +bloc.dataset.ligne, champNom = e.target.dataset.champ, l = lignes[i];
@@ -355,6 +358,7 @@ function formulaireCommande(existante = null, copie = false) {
         let id;
         if (edition) { id = existante.id; await enregistrer('commandes', id, donnees); toast('Commande enregistrée'); }
         else { id = await creer('commandes', donnees); toast(`Commande ${donnees.numero} créée`); }
+        brouillon.terminer();
         ouvrirCommande(id);
       };
     }

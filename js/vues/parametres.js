@@ -1,10 +1,15 @@
 // Paramètres : infos du site, ouverture des commandes, sauvegardes
 import { parametres, enregistrer, mode, exporterTout, importerSauvegarde, importerCatalogueSite, reinitialiserDemo, deconnexion, liste, utilisateurCourant, messageErreur } from '../store.js';
+import * as brouillon from '../brouillon.js';
 import { $, esc, isoJour, toast, confirmer, champ, interrupteur, telecharger, BTN } from '../ui.js';
 
 export default {
   render(el) {
     const p = parametres();
+    // Saisie en cours : la garder si l'écran est redessiné ou l'appli rouverte
+    const ancien = $('#form-infos', el);
+    const b = brouillon.lire();
+    const enCours = brouillon.estActif('parametres') && ancien ? brouillon.champsDe(ancien) : (b?.type === 'parametres' ? b.champs : null);
     const nbProduits = liste('produits').length;
     el.innerHTML = `
       <h1 class="hidden lg:block font-display text-3xl mb-6">Paramètres</h1>
@@ -55,6 +60,10 @@ export default {
       </div>`;
 
     $('#pa-ouvertes', el).onchange = e => $('#bloc-fermeture', el).classList.toggle('hidden', e.target.checked);
+    const formInfos = $('#form-infos', el);
+    const suivreSaisie = () => brouillon.demarrer({ type: 'parametres', racine: formInfos });
+    if (enCours) { brouillon.appliquerChamps(formInfos, enCours); suivreSaisie(); }
+    else { const premier = () => { formInfos.removeEventListener('input', premier); formInfos.removeEventListener('change', premier); suivreSaisie(); }; formInfos.addEventListener('input', premier); formInfos.addEventListener('change', premier); }
     $('#form-infos', el).onsubmit = async e => {
       e.preventDefault();
       const v = id => $('#pa-' + id, el).value.trim();
@@ -62,7 +71,7 @@ export default {
         telephone: v('telephone'), email: v('email'), adresse: v('adresse'), horairesSemaine: v('horairesSemaine'), horairesDimanche: v('horairesDimanche'),
         creneaux: v('creneaux'), commandesOuvertes: $('#pa-ouvertes', el).checked, messageFermeture: v('messageFermeture')
       });
-      toast('Infos enregistrées, le site est à jour'); } catch (err) { toast(messageErreur(err), 'erreur'); }
+      brouillon.terminer(); toast('Infos enregistrées, le site est à jour'); } catch (err) { toast(messageErreur(err), 'erreur'); }
     };
     $('#pa-restaurer', el).onchange = async e => {
       const f = e.target.files[0]; if (!f) return;

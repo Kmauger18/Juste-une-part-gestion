@@ -3,6 +3,7 @@ import { liste, obtenir, creer, enregistrer, modifier, supprimer, supprimerPhoto
 import { CATEGORIES_MATERIEL } from '../donnees.js';
 import { $, esc, toast, ouvrirPanneau, fermerPanneau, confirmer, champ, selection, etatVide, BTN } from '../ui.js';
 import { recettesUtilisantMateriel } from '../calculs.js';
+import * as brouillon from '../brouillon.js';
 import { editeurPhotos, vignette } from '../photos.js';
 
 let recherche = '';
@@ -60,7 +61,7 @@ export function renderMateriel(el, onglets, rerender) {
   $('#recherche-materiel', el).oninput = e => { recherche = e.target.value; rerender(); };
 }
 
-export function formulaireMateriel(m) {
+export function formulaireMateriel(m, reprise = null) {
   const edition = !!m;
   m = m || { nom: '', quantite: 1, categorie: 'moules', notes: '' };
   const recettes = edition ? recettesUtilisantMateriel(m.id) : [];
@@ -78,11 +79,13 @@ export function formulaireMateriel(m) {
     </form>`,
     pied: `<div class="flex gap-2">${edition ? `<button type="button" id="ma-supprimer" class="${BTN.danger}" aria-label="Supprimer"><i class="fa-regular fa-trash-can"></i></button>` : ''}<button type="button" data-action="fermer-panneau" class="${BTN.secondaire}">Annuler</button><button type="submit" form="form-materiel" class="${BTN.principal} flex-1">Enregistrer</button></div>`,
     onOuvert: (corps, pied) => {
-      const photos = editeurPhotos($('#ma-photos'), m.photos || []);
+      const photos = editeurPhotos($('#ma-photos'), m.photos || [], reprise?.extra?.photos);
+      brouillon.demarrer({ type: 'materiel', args: { id: edition ? m.id : null }, racine: corps, extra: () => ({ photos: photos.etat() }) });
+      if (reprise) brouillon.appliquerChamps(corps, reprise.champs);
       const sup = $('#ma-supprimer', pied);
       if (sup) sup.onclick = async () => {
         const msg = recettes.length ? `« ${m.nom} » est utilisé dans ${recettes.length} recette(s). Le supprimer quand même ?` : `Supprimer « ${m.nom} » ?`;
-        if (await confirmer(msg, { bouton: 'Supprimer', danger: true })) { await supprimer('materiel', m.id); (m.photos || []).forEach(id => supprimerPhoto(id).catch(() => {})); fermerPanneau(); toast('Matériel supprimé'); }
+        if (await confirmer(msg, { bouton: 'Supprimer', danger: true })) { brouillon.terminer(); await supprimer('materiel', m.id); (m.photos || []).forEach(id => supprimerPhoto(id).catch(() => {})); fermerPanneau(); toast('Matériel supprimé'); }
       };
       $('#form-materiel').onsubmit = async e => {
         e.preventDefault();
@@ -91,7 +94,7 @@ export function formulaireMateriel(m) {
         const bouton = pied.querySelector('button[type=submit]'); bouton.disabled = true; bouton.textContent = 'Enregistrement…';
         try { Object.assign(d, await photos.enregistrer()); } catch (err) { toast(err.message, 'erreur'); bouton.disabled = false; bouton.textContent = 'Enregistrer'; return; }
         if (edition) await enregistrer('materiel', m.id, d); else await creer('materiel', d);
-        fermerPanneau(); toast('Matériel enregistré');
+        brouillon.terminer(); fermerPanneau(); toast('Matériel enregistré');
       };
     }
   });
